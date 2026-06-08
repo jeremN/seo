@@ -6,6 +6,13 @@ const ICON: Record<Severity, string> = { critical: '🔴', warning: '🟡', info
 
 export type FailOn = 'none' | 'critical' | 'warning';
 
+// Échappe le contenu d'une cellule de table markdown : un `|` ou un retour
+// ligne dans un title/canonical réel casserait l'alignement du commentaire.
+function cell(value: string | null): string {
+  if (value == null) return '—';
+  return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim() || '—';
+}
+
 export function report(
   findings: Finding[],
   opts: { failOn: FailOn; pageCount: number },
@@ -35,7 +42,7 @@ export function report(
     body += `\n<details${s === 'critical' ? ' open' : ''}><summary>${ICON[s]} ${items.length} ${s}</summary>\n\n`;
     body += '| Page | Signal | Avant | Après |\n|---|---|---|---|\n';
     for (const f of items) {
-      body += `| \`${f.path}\` | ${f.signal} | ${f.before ?? '—'} | ${f.after ?? '—'} |\n`;
+      body += `| \`${f.path}\` | ${f.signal} | ${cell(f.before)} | ${cell(f.after)} |\n`;
     }
     body += '\n</details>\n';
   }

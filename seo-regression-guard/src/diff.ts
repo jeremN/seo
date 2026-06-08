@@ -22,7 +22,7 @@ export function diff(prod: SeoSignals, preview: SeoSignals): Finding[] {
     return [mk(path, 'new-page', 'info', null, String(preview.status), 'Nouvelle page (absente de la prod).')];
   }
   if (!prodMissing && previewMissing) {
-    return [mk(path, 'page-removed', 'critical', '200', '404', 'Page indexée supprimée (404 en preview).')];
+    return [mk(path, 'page-removed', 'critical', String(prod.status), '404', 'Page indexée supprimée (404 en preview).')];
   }
 
   const f: Finding[] = [];

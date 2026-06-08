@@ -32,4 +32,11 @@ describe('report', () => {
     expect(r.markdown).toContain('`/a`');
     expect(r.markdown).toContain('`/b`');
   });
+
+  it('échappe les `|` et retours ligne dans les cellules', () => {
+    const piped: Finding = { path: '/p', signal: 'title', severity: 'warning', before: 'A | B\nC', after: null, message: '' };
+    const r = report([piped], { failOn: 'critical', pageCount: 1 });
+    expect(r.markdown).toContain('A \\| B C');
+    expect(r.markdown).not.toContain('A | B');
+  });
 });
