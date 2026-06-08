@@ -1,0 +1,37 @@
+name: 'SEO Regression Guard'
+description: 'Catch SEO regressions in a PR before they ship — compares production vs preview.'
+author: 'jeremie'
+branding:
+  icon: 'search'
+  color: 'green'
+inputs:
+  prod-url:
+    description: 'Base URL of production (the known-good)'
+    required: true
+  preview-url:
+    description: 'Base URL of the PR preview deployment'
+    required: true
+  paths:
+    description: 'Newline-separated paths to check (overrides sitemap)'
+    required: false
+  sitemap:
+    description: 'Sitemap URL (default: <preview-url>/sitemap.xml)'
+    required: false
+  max-pages:
+    description: 'Max pages to analyze'
+    required: false
+    default: '50'
+  fail-on:
+    description: 'none | critical | warning'
+    required: false
+    default: 'critical'
+  ignore-paths:
+    description: 'Newline-separated globs to neutralize findings'
+    required: false
+  github-token:
+    description: 'Token used to upsert the PR comment'
+    required: false
+    default: '${{ github.token }}'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
