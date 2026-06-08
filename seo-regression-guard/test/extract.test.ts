@@ -35,6 +35,12 @@ describe('extract', () => {
     expect(s.jsonLd).toEqual([{ valid: true, types: ['Article'] }, { valid: false, types: [] }]);
   });
 
+  it('aplatit un @type en forme tableau (valide schema.org)', () => {
+    const html = H('<script type="application/ld+json">{"@type":["Article","NewsArticle"]}</script>');
+    const s = extract(html, 200, {}, '/a', 'https://x.com/a', 'https://x.com/a');
+    expect(s.jsonLd).toEqual([{ valid: true, types: ['Article', 'NewsArticle'] }]);
+  });
+
   it('renseigne redirectedTo quand finalUrl diffère', () => {
     const s = extract(H(''), 200, {}, '/a', 'https://x.com/b', 'https://x.com/a');
     expect(s.redirectedTo).toBe('https://x.com/b');

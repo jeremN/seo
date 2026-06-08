@@ -30,7 +30,9 @@ export function extract(
       try {
         const data = JSON.parse(el.text);
         const raw = Array.isArray(data) ? data : [data];
-        const types = raw.map((d) => d?.['@type']).filter((t): t is string => typeof t === 'string');
+        const types = raw
+          .flatMap((d) => (Array.isArray(d?.['@type']) ? d['@type'] : [d?.['@type']]))
+          .filter((t): t is string => typeof t === 'string');
         return { valid: true, types };
       } catch {
         return { valid: false, types: [] as string[] };
