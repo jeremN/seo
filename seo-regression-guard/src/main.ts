@@ -14,9 +14,8 @@ export async function run(): Promise<void> {
     const ignorePaths = core.getInput('ignore-paths').split('\n').map((s) => s.trim()).filter(Boolean);
     const token = core.getInput('github-token') || process.env.GITHUB_TOKEN || '';
 
-    const paths = pathsInput
-      ? pathsInput.split('\n').map((s) => s.trim()).filter(Boolean)
-      : undefined;
+    const parsedPaths = pathsInput.split('\n').map((s) => s.trim()).filter(Boolean);
+    const paths = parsedPaths.length > 0 ? parsedPaths : undefined;
 
     const { findings, pageCount } = await analyze({
       prodUrl, previewUrl, paths,
@@ -43,7 +42,11 @@ async function upsertComment(token: string, body: string): Promise<void> {
     const octokit = github.getOctokit(token);
     const { owner, repo } = ctx.repo;
     const issue_number = ctx.payload.pull_request.number;
-    const { data: comments } = await octokit.rest.issues.listComments({ owner, repo, issue_number });
+    // Paginate so the sticky comment is found even on PRs with >30 comments
+    // (listComments defaults to 30/page) — otherwise we'd post a duplicate.
+    const comments = await octokit.paginate(octokit.rest.issues.listComments, {
+      owner, repo, issue_number, per_page: 100,
+    });
     const existing = comments.find((c) => c.body?.includes(MARKER));
     if (existing) {
       await octokit.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
