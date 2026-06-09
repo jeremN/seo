@@ -1,0 +1,47 @@
+# Example consumer workflow for seo-regression-guard.
+#
+# Copy this file into YOUR repository at: .github/workflows/seo.yml
+# (It lives under examples/ here so GitHub does not run it on this repo — it would
+#  fail without a real preview deployment.)
+
+name: SEO Regression Guard
+on:
+  pull_request:
+
+# The action posts/updates a comment on the PR, which requires write access.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  seo-guard:
+    runs-on: ubuntu-latest
+    steps:
+      # ── Step 1: obtain the PR's preview deployment URL ────────────────────────
+      # Replace this with however your platform exposes the preview URL. Examples:
+      #   - Vercel:    the deployment URL from the `vercel`/`vercel-action` output
+      #   - Netlify:   the `deploy-preview` URL from netlify/actions
+      #   - Cloudflare Pages: the deployment status `environment_url`
+      #
+      # - id: deploy
+      #   uses: your-preview-provider/action@<commit-sha>
+      #   with: { ... }
+
+      # ── Step 2: guard against SEO regressions ─────────────────────────────────
+      - name: Check SEO regressions
+        uses: jeremN/seo/seo-regression-guard@v0   # pin to a tag or, better, a commit SHA
+        with:
+          prod-url: https://your-site.com
+          preview-url: ${{ steps.deploy.outputs.preview-url }}
+
+          # ── Optional tuning (defaults shown) ──
+          # sitemap: https://your-site.com/sitemap.xml   # default: <preview-url>/sitemap.xml
+          # paths: |                                     # explicit list (overrides sitemap)
+          #   /
+          #   /pricing
+          #   /blog
+          # max-pages: '50'
+          # fail-on: critical                            # none | critical | warning
+          # ignore-paths: |                              # globs; `*` is the wildcard
+          #   /blog/*
+          #   /preview-only/*
