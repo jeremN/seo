@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { runCheckPage, runAudit } from "../src/tools.js";
+import { runCheckPage, runAudit, runGuard } from "../src/tools.js";
 import type { FetchResult } from "../../seo-regression-guard/lib/fetcher.js";
 
 const res = (over: Partial<FetchResult>): FetchResult =>
@@ -37,5 +37,23 @@ describe("runAudit", () => {
     expect(out.kind).toBe("report");
     expect(out.command).toBe("audit");
     expect(out.findings.some((f) => f.signal === "title" && f.path === "/x")).toBe(true);
+  });
+});
+
+describe("runGuard", () => {
+  it("returns a report plus thresholdMet for a prod/preview diff", async () => {
+    const fetchImpl = (url: string) => {
+      if (url.endsWith("/robots.txt")) return Promise.resolve(res({ html: "" }));
+      if (url.includes("preview") && url.endsWith("/a"))
+        return Promise.resolve(res({ html: '<meta name="robots" content="noindex"><title>t</title>', finalUrl: url }));
+      return Promise.resolve(res({ html: "<title>t</title>", finalUrl: url }));
+    };
+    const out = await runGuard(
+      { prodUrl: "https://prod.x", previewUrl: "https://preview.x", paths: ["/a"] },
+      { fetchImpl },
+    );
+    expect(out.report.command).toBe("guard");
+    expect(out.report.summary.critical).toBe(1);
+    expect(out.thresholdMet).toBe(true);
   });
 });

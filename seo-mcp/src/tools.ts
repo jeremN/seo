@@ -3,7 +3,9 @@ import { parseRobots } from "../../seo-regression-guard/lib/robots.js";
 import { fetchUrl, type FetchImpl } from "../../seo-regression-guard/lib/fetcher.js";
 import type { RobotsRule, SeoSignals } from "../../seo-regression-guard/lib/types.js";
 import { audit } from "../../seo-regression-guard/lib/audit.js";
-import { reportJson } from "../../seo-regression-guard/lib/cli-render.js";
+import { analyze } from "../../seo-regression-guard/lib/analyze.js";
+import { reportJson, meetsThreshold } from "../../seo-regression-guard/lib/cli-render.js";
+import type { FailOn } from "../../seo-regression-guard/lib/report.js";
 import { clampMaxPages } from "./clamp.js";
 
 interface Deps { fetchImpl?: FetchImpl }
@@ -31,6 +33,31 @@ export async function runAudit(args: AuditArgs, deps: Deps = {}) {
     fetchImpl: deps.fetchImpl,
   });
   return reportJson("audit", result);
+}
+
+export interface GuardArgs {
+  prodUrl: string;
+  previewUrl: string;
+  paths?: string[];
+  sitemap?: string;
+  maxPages?: number;
+  failOn?: FailOn;
+  ignore?: string[];
+}
+
+export async function runGuard(args: GuardArgs, deps: Deps = {}) {
+  const failOn: FailOn = args.failOn ?? "critical";
+  const paths = args.paths;
+  const result = await analyze({
+    prodUrl: args.prodUrl,
+    previewUrl: args.previewUrl,
+    paths,
+    sitemapUrl: paths?.length ? undefined : (args.sitemap ?? new URL("/sitemap.xml", args.previewUrl).toString()),
+    maxPages: clampMaxPages(args.maxPages),
+    ignorePaths: args.ignore,
+    fetchImpl: deps.fetchImpl,
+  });
+  return { report: reportJson("guard", result), thresholdMet: meetsThreshold(result.findings, failOn) };
 }
 
 export async function runCheckPage(
