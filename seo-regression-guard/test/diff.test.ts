@@ -74,4 +74,16 @@ describe('diff', () => {
     expect(diff(sig({ reachable: false }), sig({}))).toEqual([]);
     expect(diff(sig({}), sig({ reachable: false }))).toEqual([]);
   });
+
+  it('ignore un noindex d\'origine header (injecté par les previews)', () => {
+    expect(diff(sig({}), sig({ robots: { noindex: true, source: 'header' } }))).toEqual([]);
+  });
+
+  it('ne flague pas un redirect identique sur des hosts différents', () => {
+    const out = diff(
+      sig({ redirectedTo: 'https://prod.example/pricing' }),
+      sig({ redirectedTo: 'https://preview.example/pricing' }),
+    );
+    expect(out).toEqual([]);
+  });
 });
