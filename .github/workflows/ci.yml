@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: seo-regression-guard
+    steps:
+      - uses: actions/checkout@v4   # consider pinning to a commit SHA for hardening
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: seo-regression-guard/package-lock.json
+
+      - name: Install (pinned, from lockfile)
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build bundle
+        run: npm run build
+
+      # A JS Action runs the committed dist/index.js, not src/. Fail if the bundle
+      # was not rebuilt and committed alongside the source change.
+      - name: Verify dist/ is up to date
+        run: |
+          if ! git diff --exit-code dist; then
+            echo "::error::dist/ is stale — run 'npm run build' in seo-regression-guard/ and commit the result."
+            exit 1
+          fi
