@@ -70,6 +70,8 @@ The check **blocks the merge** only when a finding meets the `fail-on` threshold
 | Meta description | removed | 🟡 warning |
 | H1 | removed, or count 1 → 0 / 1 → many | 🟡 warning |
 | Structured data | JSON-LD removed, or now invalid JSON | 🟡 warning |
+| Internal links | a link to an internal URL that now 404s (one-hop checked) | 🟡 warning |
+| Orphan pages | a page no other page links to (from static HTML) | 🟡 warning |
 
 New pages (present in preview, absent in prod) are reported as ℹ️ info and never block.
 
@@ -104,7 +106,8 @@ hidden marker and paginated lookup so it never duplicates on busy PRs.
 
 - **Not** a Google Search Console integration. GSC-based post-deploy alerting
   (deindexation, traffic drops) and result attribution are on the roadmap (layer 3).
-- **Not** an internal-link / orphan-page crawler (planned v0.1).
+- Orphan detection sees **static-HTML** links only — pages linked exclusively via
+  client-side-rendered navigation may be reported as orphans.
 - **Not** a Core Web Vitals monitor.
 
 It only compares two live deploys. That's the whole point: deterministic, cheap, and

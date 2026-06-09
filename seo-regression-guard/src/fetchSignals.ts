@@ -32,6 +32,6 @@ function unreachable(path: string): SeoSignals {
   return {
     path, reachable: false, status: 0, redirectedTo: null,
     robots: { noindex: false, source: null }, canonical: null,
-    title: null, metaDescription: null, h1: [], jsonLd: [],
+    title: null, metaDescription: null, h1: [], jsonLd: [], internalLinks: [],
   };
 }

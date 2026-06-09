@@ -65,6 +65,7 @@ Full docs: [`seo-regression-guard/README.md`](seo-regression-guard/README.md).
 | Page removed | a previously-live URL now 404s | 🔴 |
 | Title / meta / H1 | removed | 🟡 |
 | Structured data | JSON-LD removed or now invalid | 🟡 |
+| Internal links / orphans | broken internal link, or an unlinked page | 🟡 |
 
 ## Why it's not just another SEO tool
 
@@ -90,7 +91,6 @@ reused across the Action, a CLI, and an MCP server.
 ## Not yet (roadmap)
 
 - Google Search Console alerting (post-deploy deindexation, traffic drops) & result attribution
-- Internal-link / orphan-page crawler
 - Core Web Vitals regressions
 
 ## Develop
