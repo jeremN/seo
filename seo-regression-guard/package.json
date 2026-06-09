@@ -10,7 +10,8 @@
   "scripts": {
     "test": "vitest run",
     "build": "ncc build src/main.ts -o dist --minify",
-    "build:cli": "ncc build src/cli.ts -o dist-cli --minify"
+    "build:cli": "ncc build src/cli.ts -o dist-cli --minify",
+    "build:lib": "tsc --project tsconfig.lib.json"
   },
   "dependencies": {
     "@actions/core": "1.11.1",
