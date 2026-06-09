@@ -4,13 +4,18 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "bin": {
+    "seo-guard": "dist-cli/index.js"
+  },
   "scripts": {
     "test": "vitest run",
-    "build": "ncc build src/main.ts -o dist --minify"
+    "build": "ncc build src/main.ts -o dist --minify",
+    "build:cli": "ncc build src/cli.ts -o dist-cli --minify"
   },
   "dependencies": {
     "@actions/core": "1.11.1",
     "@actions/github": "6.0.0",
+    "cac": "6.7.14",
     "fast-xml-parser": "4.5.0",
     "node-html-parser": "6.1.13"
   },

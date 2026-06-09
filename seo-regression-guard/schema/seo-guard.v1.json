@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jeremN/seo/seo-regression-guard/schema/seo-guard.v1.json",
+  "title": "seo-guard/v1 output",
+  "description": "Discriminated-union JSON contract emitted by the seo-guard CLI. A `report` is written to stdout; an `error` is written to stderr. Branch on `kind`. Additional fields may be added in a backward-compatible way, so consumers MUST NOT reject unknown properties.",
+  "oneOf": [
+    { "$ref": "#/$defs/report" },
+    { "$ref": "#/$defs/error" }
+  ],
+  "$defs": {
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "warning", "info"]
+    },
+    "signal": {
+      "type": "string",
+      "enum": [
+        "indexability", "canonical", "status", "page-removed",
+        "title", "meta-description", "h1", "structured-data", "new-page",
+        "orphan-page", "internal-link-broken"
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "required": ["path", "signal", "severity", "before", "after", "message"],
+      "properties": {
+        "path": { "type": "string", "description": "URL pathname the finding is about." },
+        "signal": { "$ref": "#/$defs/signal" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "before": { "type": ["string", "null"], "description": "Prior/expected value, or null." },
+        "after": { "type": ["string", "null"], "description": "Observed value, or null." },
+        "message": { "type": "string", "description": "Human-readable explanation." }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["schema", "kind", "command", "pageCount", "skipped", "summary", "findings"],
+      "properties": {
+        "schema": { "const": "seo-guard/v1" },
+        "kind": { "const": "report" },
+        "command": { "type": "string", "enum": ["guard", "audit"] },
+        "pageCount": { "type": "integer", "minimum": 0, "description": "Pages analyzed (discovered minus skipped)." },
+        "skipped": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Paths skipped because they were unreachable."
+        },
+        "summary": {
+          "type": "object",
+          "required": ["critical", "warning", "info"],
+          "properties": {
+            "critical": { "type": "integer", "minimum": 0 },
+            "warning": { "type": "integer", "minimum": 0 },
+            "info": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["schema", "kind", "message", "hint", "exitCode"],
+      "properties": {
+        "schema": { "const": "seo-guard/v1" },
+        "kind": { "const": "error" },
+        "message": { "type": "string", "description": "What went wrong." },
+        "hint": { "type": "string", "description": "Literal next command to run to recover." },
+        "exitCode": { "type": "integer", "description": "Process exit code (2 usage, 3 config, 1 runtime)." }
+      }
+    }
+  }
+}
