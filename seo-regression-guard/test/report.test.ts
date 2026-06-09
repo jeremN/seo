@@ -39,4 +39,11 @@ describe('report', () => {
     expect(r.markdown).toContain('A \\| B C');
     expect(r.markdown).not.toContain('A | B');
   });
+
+  it('pageCount=0 → avertit au lieu d\'un faux vert', () => {
+    const r = report([], { failOn: 'critical', pageCount: 0 });
+    expect(r.shouldFail).toBe(false);
+    expect(r.markdown).toContain('Aucune page analysée');
+    expect(r.markdown).not.toContain('✅');
+  });
 });

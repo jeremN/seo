@@ -23,6 +23,14 @@ export function report(
     : findings.some((f) => f.severity === 'critical');
 
   if (findings.length === 0) {
+    if (opts.pageCount === 0) {
+      // Ne PAS afficher un ✅ rassurant quand rien n'a été analysé (sitemap
+      // vide/non reconnu, paths vide) — ce serait un faux « tout vert ».
+      return {
+        markdown: `${MARKER}\n## seo-regression-guard\n⚠️ Aucune page analysée (sitemap vide/non reconnu ou \`paths\` vide) — la garde n'a rien vérifié.`,
+        shouldFail: false,
+      };
+    }
     return {
       markdown: `${MARKER}\n## seo-regression-guard\n✅ Aucune régression SEO détectée sur ${opts.pageCount} pages.`,
       shouldFail: false,
