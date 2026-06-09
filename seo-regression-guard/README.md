@@ -115,19 +115,66 @@ runnable on every PR with no credentials.
 
 ---
 
+## CLI (`seo-guard`)
+
+The same deterministic core ships as a command-line tool with two verbs — usable
+locally, in any CI, or by an AI agent. See [`AGENTS.md`](./AGENTS.md) for the
+agent-facing contract.
+
+```bash
+cd seo-regression-guard
+npm install
+npm run build:cli      # bundles src/cli.ts → dist-cli/index.js (ncc)
+npm link               # exposes `seo-guard` on your PATH
+```
+
+- **`seo-guard guard`** — the Action's prod↔preview diff, on the command line:
+
+  ```bash
+  seo-guard guard --prod https://your-site.com \
+                  --preview https://pr-123.your-site.dev \
+                  --fail-on critical
+  ```
+
+- **`seo-guard audit`** — the "perso" feature: an **absolute** single-site SEO audit
+  (no preview needed). Discovers pages via `<url>/sitemap.xml` by default, lints each
+  page against best practices, and runs the orphan/broken-link crawl:
+
+  ```bash
+  seo-guard audit --url https://your-site.com               # human table
+  seo-guard audit --url https://your-site.com --json        # machine-readable
+  seo-guard audit --url https://your-site.com --paths / --paths /pricing
+  ```
+
+Both honor `--paths`, `--sitemap`, `--max-pages`, `--ignore '<glob>'`, and `--json`.
+Human output is a compact, critical-first table; `--json` emits the versioned
+`seo-guard/v1` contract on stdout (errors and logs go to stderr). Color is disabled
+automatically when `NO_COLOR` is set or stdout is not a TTY.
+
+**Exit codes:** `0` ok · `1` findings reached the threshold (or a runtime failure) ·
+`2` usage error · `3` config error (no `--paths` and sitemap unreachable).
+
+> `audit` flags `noindex` from **any** source (it's auditing one real site), whereas
+> `guard` ignores preview `X-Robots-Tag` header noise. That's the one intentional
+> difference between the two commands' indexability checks.
+
+---
+
 ## Local development
 
 ```bash
 cd seo-regression-guard
 npm install
-npm test            # vitest, 44 tests
+npm test            # vitest, 74 tests
 npx tsc --noEmit    # strict typecheck
-npm run build       # bundles src/main.ts → dist/index.js (ncc)
+npm run build       # bundles src/main.ts → dist/index.js   (the Action)
+npm run build:cli   # bundles src/cli.ts  → dist-cli/index.js (the CLI)
 ```
 
-> A JS GitHub Action runs the **committed bundle** `dist/index.js`, not `src/`. After
-> changing any source, run `npm run build` and commit `dist/`. CI fails if `dist/` is
-> stale (`git diff --exit-code dist`).
+> Both bundles are **committed**. A JS GitHub Action runs `dist/index.js`, and the
+> `seo-guard` CLI is distributed as `dist-cli/index.js`. After changing any source,
+> rebuild and commit both. CI fails if either is stale
+> (`git diff --exit-code dist` / `dist-cli`).
 
 ## License
 

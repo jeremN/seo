@@ -42,3 +42,15 @@ jobs:
             echo "::error::dist/ is stale — run 'npm run build' in seo-regression-guard/ and commit the result."
             exit 1
           fi
+
+      - name: Build CLI bundle
+        run: npm run build:cli
+
+      # The `seo-guard` CLI is distributed as the committed dist-cli/ bundle
+      # (run via `npm link`). Keep it in sync with src/ the same way as dist/.
+      - name: Verify dist-cli/ is up to date
+        run: |
+          if ! git diff --exit-code dist-cli; then
+            echo "::error::dist-cli/ is stale — run 'npm run build:cli' in seo-regression-guard/ and commit the result."
+            exit 1
+          fi
