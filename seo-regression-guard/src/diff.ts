@@ -11,6 +11,14 @@ function hostOf(url: string): string {
   try { return new URL(url).host; } catch { return ''; }
 }
 
+// Compare redirects by path (+ query), not absolute URL: prod and preview live on
+// different hosts by design, so a same-site redirect (e.g. CF Pages' .html → clean URL)
+// would otherwise look like a "changed target".
+function redirectPath(url: string | null): string | null {
+  if (!url) return null;
+  try { const u = new URL(url); return u.pathname + u.search; } catch { return url; }
+}
+
 export function diff(prod: SeoSignals, preview: SeoSignals): Finding[] {
   const path = preview.path;
   if (!prod.reachable || !preview.reachable) return []; // pas de known-good / preview down
@@ -27,19 +35,25 @@ export function diff(prod: SeoSignals, preview: SeoSignals): Finding[] {
 
   const f: Finding[] = [];
 
-  // status / redirect (seulement si la prod était servie en 2xx)
+  // status / redirect (seulement si la prod était servie en 2xx). Redirections
+  // comparées par path (host-indépendant) via redirectPath().
   if (prod.status >= 200 && prod.status < 300) {
+    const prodRedir = redirectPath(prod.redirectedTo);
+    const previewRedir = redirectPath(preview.redirectedTo);
     if (preview.status >= 500) {
       f.push(mk(path, 'status', 'critical', String(prod.status), String(preview.status), 'Erreur serveur en preview.'));
-    } else if (preview.redirectedTo && !prod.redirectedTo) {
-      f.push(mk(path, 'status', 'critical', '200', `→ ${preview.redirectedTo}`, 'La page redirige désormais.'));
-    } else if (preview.redirectedTo && prod.redirectedTo && preview.redirectedTo !== prod.redirectedTo) {
-      f.push(mk(path, 'status', 'critical', `→ ${prod.redirectedTo}`, `→ ${preview.redirectedTo}`, 'Cible de redirection changée.'));
+    } else if (previewRedir && !prodRedir) {
+      f.push(mk(path, 'status', 'critical', '200', `→ ${previewRedir}`, 'La page redirige désormais.'));
+    } else if (previewRedir && prodRedir && previewRedir !== prodRedir) {
+      f.push(mk(path, 'status', 'critical', `→ ${prodRedir}`, `→ ${previewRedir}`, 'Cible de redirection changée.'));
     }
   }
 
-  // indexability
-  if (preview.robots.noindex && !prod.robots.noindex) {
+  // indexability — on ignore le noindex d'origine `header` (X-Robots-Tag) : les
+  // hébergeurs de preview (Cloudflare Pages, Vercel, Netlify…) l'injectent sur TOUTES
+  // les previews pour les garder hors de Google. Seul le noindex `meta`/`robots.txt`
+  // (contrôlé par le code de la PR) est une vraie régression.
+  if (preview.robots.noindex && preview.robots.source !== 'header' && !prod.robots.noindex) {
     f.push(mk(path, 'indexability', 'critical', 'indexable', `noindex (${preview.robots.source})`, 'noindex nouvellement introduit.'));
   }
 

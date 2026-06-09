@@ -9,7 +9,7 @@ export async function fetchSignals(
   robots: RobotsRule,
   fetchImpl: FetchImpl = fetchUrl,
 ): Promise<SeoSignals> {
-  const requestedUrl = new URL(path, baseUrl).toString();
+  const requestedUrl = joinUrl(baseUrl, path);
   const res = await fetchImpl(requestedUrl);
   if (!res.ok) return unreachable(path);
 
@@ -18,6 +18,14 @@ export async function fetchSignals(
     signals.robots = { noindex: true, source: 'robots.txt' };
   }
   return signals;
+}
+
+// Joint un path au base en respectant son sous-chemin éventuel (sites non hébergés à
+// la racine) : `/about` sous `https://x.io/app/` → `https://x.io/app/about`, et non
+// `https://x.io/about` (ce que ferait `new URL('/about', base)`).
+function joinUrl(baseUrl: string, path: string): string {
+  const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  return new URL(path.replace(/^\//, ''), base).toString();
 }
 
 function unreachable(path: string): SeoSignals {

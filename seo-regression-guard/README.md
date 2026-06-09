@@ -61,10 +61,10 @@ The check **blocks the merge** only when a finding meets the `fail-on` threshold
 
 | Signal | Regression detected | Severity |
 |---|---|---|
-| Indexability | `noindex` newly introduced (meta / `X-Robots-Tag` / robots.txt) | 🔴 critical |
+| Indexability | `noindex` newly introduced via `<meta robots>` or robots.txt | 🔴 critical |
 | Canonical | removed, or now points off-domain | 🔴 critical |
 | Canonical | now points to a different on-site path | 🟡 warning |
-| Status | prod 2xx → preview 5xx, or a new / changed redirect | 🔴 critical |
+| Status | prod 2xx → preview 5xx, or a new / changed redirect (compared by path) | 🔴 critical |
 | Page removed | a previously-live URL now 404s | 🔴 critical |
 | Title | removed (changed → ℹ️ info) | 🟡 warning |
 | Meta description | removed | 🟡 warning |
@@ -72,6 +72,13 @@ The check **blocks the merge** only when a finding meets the `fail-on` threshold
 | Structured data | JSON-LD removed, or now invalid JSON | 🟡 warning |
 
 New pages (present in preview, absent in prod) are reported as ℹ️ info and never block.
+
+> **Why `X-Robots-Tag` headers are ignored for noindex:** preview hosts (Cloudflare Pages,
+> Vercel, Netlify…) inject `X-Robots-Tag: noindex` on *every* preview deployment to keep
+> previews out of search. That's environment noise, not a code regression — so only
+> `<meta robots>` / robots.txt noindex (which your PR actually controls) is flagged.
+> Likewise, redirects are compared by **path**, so a same-site redirect that only differs
+> by host between prod and preview is not a false "redirect changed".
 
 ---
 

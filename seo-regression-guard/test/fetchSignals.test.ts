@@ -25,4 +25,11 @@ describe('fetchSignals', () => {
     expect(s.reachable).toBe(true);
     expect(s.status).toBe(404);
   });
+
+  it('résout les paths relativement au sous-chemin du base', async () => {
+    let seen = '';
+    const fetchImpl = async (url: string) => { seen = url; return res({ html: '<title>t</title>', finalUrl: url }); };
+    await fetchSignals('https://x.io/app/', '/page', { disallow: [] }, fetchImpl);
+    expect(seen).toBe('https://x.io/app/page');
+  });
 });
