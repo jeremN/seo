@@ -19,7 +19,9 @@ describe('analyze', () => {
       paths: ['/a'], maxPages: 50, fetchImpl: router,
     });
     expect(out.pageCount).toBe(1);
-    expect(out.findings).toMatchObject([{ signal: 'indexability', severity: 'critical' }]);
+    expect(out.findings).toContainEqual(
+      expect.objectContaining({ signal: 'indexability', severity: 'critical' }),
+    );
   });
 
   it('ignore-paths neutralise les findings matchés', async () => {
@@ -39,5 +41,29 @@ describe('analyze', () => {
     });
     expect(out.skipped).toEqual(['/a']);
     expect(out.pageCount).toBe(0);
+  });
+
+  it('détecte orphelines et liens internes cassés (maillage)', async () => {
+    const pages: Record<string, string> = {
+      '/': '<a href="/a">a</a><a href="/b">b</a>',
+      '/a': '<a href="/">home</a>',
+      '/b': '<a href="/missing">x</a>',
+      '/orphan': '<p>nobody links here</p>',
+    };
+    const fetchImpl = async (url: string): Promise<FetchResult> => {
+      if (url.endsWith('/robots.txt')) return res({ html: '' });
+      const p = new URL(url).pathname;
+      if (p === '/missing') return res({ status: 404, finalUrl: url });
+      return res({ html: `<title>t</title>${pages[p] ?? ''}`, finalUrl: url });
+    };
+    const out = await analyze({
+      prodUrl: 'https://prod.x', previewUrl: 'https://preview.x',
+      paths: ['/', '/a', '/b', '/orphan'], maxPages: 50, fetchImpl,
+    });
+    const sigs = out.findings.map((f) => `${f.signal}:${f.path}`);
+    expect(sigs).toContain('orphan-page:/orphan');
+    expect(sigs).toContain('internal-link-broken:/b');
+    expect(sigs).not.toContain('orphan-page:/');
+    expect(sigs).not.toContain('orphan-page:/a');
   });
 });

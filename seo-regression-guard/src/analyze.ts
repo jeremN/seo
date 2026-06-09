@@ -3,7 +3,8 @@ import { fetchSignals } from './fetchSignals.js';
 import { fetchUrl, type FetchImpl } from './fetcher.js';
 import { parseRobots } from './robots.js';
 import { diff } from './diff.js';
-import type { Finding, RobotsRule } from './types.js';
+import { maillageFindings } from './maillage.js';
+import type { Finding, RobotsRule, SeoSignals } from './types.js';
 
 export interface AnalyzeOpts {
   prodUrl: string;
@@ -67,14 +68,22 @@ export async function analyze(opts: AnalyzeOpts): Promise<AnalyzeResult> {
 
   const findings: Finding[] = [];
   const skipped: string[] = [];
+  const previewByPath = new Map<string, SeoSignals>();
   for (const path of paths) {
     const prod = await fetchSignals(opts.prodUrl, path, prodRobots, fetchImpl);
     const preview = await fetchSignals(opts.previewUrl, path, previewRobots, fetchImpl);
     if (!prod.reachable) { skipped.push(path); opts.log?.(`Prod injoignable, paire sautée: ${path}`); continue; }
     if (!preview.reachable) { skipped.push(path); opts.log?.(`Preview injoignable, paire sautée: ${path}`); continue; }
+    previewByPath.set(path, preview);
     for (const finding of diff(prod, preview)) {
       if (!isIgnored(finding.path, ignore)) findings.push(finding);
     }
   }
+
+  // Maillage interne (cross-page, calculé sur la preview)
+  for (const finding of await maillageFindings(previewByPath, opts.previewUrl, previewRobots, fetchImpl, opts.maxPages)) {
+    if (!isIgnored(finding.path, ignore)) findings.push(finding);
+  }
+
   return { findings, pageCount: paths.length - skipped.length, skipped };
 }

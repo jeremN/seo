@@ -42,6 +42,18 @@ export function extract(
   const canonical =
     links.find((l) => (l.getAttribute('rel') ?? '').toLowerCase() === 'canonical')?.getAttribute('href') ?? null;
 
+  const origin = (() => { try { return new URL(finalUrl).origin; } catch { return ''; } })();
+  const internalLinks = Array.from(new Set(
+    root.querySelectorAll('a')
+      .map((a) => {
+        try {
+          const u = new URL(a.getAttribute('href') ?? '', finalUrl);
+          return u.origin === origin && (u.protocol === 'http:' || u.protocol === 'https:') ? u.pathname : '';
+        } catch { return ''; }
+      })
+      .filter((p) => p.length > 0),
+  ));
+
   return {
     path,
     reachable: true,
@@ -53,5 +65,6 @@ export function extract(
     metaDescription: metaByName('description')?.trim() ?? null,
     h1: root.querySelectorAll('h1').map((el) => el.text.trim()).filter(Boolean),
     jsonLd,
+    internalLinks,
   };
 }

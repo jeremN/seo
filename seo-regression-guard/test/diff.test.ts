@@ -6,6 +6,7 @@ const sig = (over: Partial<SeoSignals>): SeoSignals => ({
   path: '/a', reachable: true, status: 200, redirectedTo: null,
   robots: { noindex: false, source: null }, canonical: 'https://x.com/a',
   title: 'T', metaDescription: 'D', h1: ['H'], jsonLd: [{ valid: true, types: ['Article'] }],
+  internalLinks: [],
   ...over,
 });
 

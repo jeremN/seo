@@ -2,7 +2,8 @@ export type Severity = 'critical' | 'warning' | 'info';
 
 export type SignalName =
   | 'indexability' | 'canonical' | 'status' | 'page-removed'
-  | 'title' | 'meta-description' | 'h1' | 'structured-data' | 'new-page';
+  | 'title' | 'meta-description' | 'h1' | 'structured-data' | 'new-page'
+  | 'orphan-page' | 'internal-link-broken';
 
 export interface RobotsRule {
   disallow: string[];
@@ -19,6 +20,7 @@ export interface SeoSignals {
   metaDescription: string | null;
   h1: string[];
   jsonLd: { valid: boolean; types: string[] }[];
+  internalLinks: string[];       // pathnames des liens <a> same-origin (pour le maillage)
 }
 
 export interface Finding {

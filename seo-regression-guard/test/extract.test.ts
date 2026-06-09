@@ -45,4 +45,10 @@ describe('extract', () => {
     const s = extract(H(''), 200, {}, '/a', 'https://x.com/b', 'https://x.com/a');
     expect(s.redirectedTo).toBe('https://x.com/b');
   });
+
+  it('extrait les liens internes same-origin (pathname, dédupliqués)', () => {
+    const html = H('', '<a href="/a">a</a><a href="/a">dup</a><a href="https://x.com/b">b</a><a href="https://other.com/c">c</a>');
+    const s = extract(html, 200, {}, '/', 'https://x.com/', 'https://x.com/');
+    expect(s.internalLinks.sort()).toEqual(['/a', '/b']);
+  });
 });
