@@ -24,6 +24,7 @@ function page(opts: {
   og?: boolean;
   charset?: boolean;
   canonical?: number;
+  hreflang?: { lang: string; href: string }[];
   links?: string[];
 } = {}): string {
   const parts: string[] = [];
@@ -39,6 +40,7 @@ function page(opts: {
 
   for (let i = 0; i < (opts.h1 ?? 1); i++) parts.push(`<h1>h${i}</h1>`);
   for (let i = 0; i < (opts.canonical ?? 1); i++) parts.push(`<link rel="canonical" href="https://site.example/c${i}">`);
+  for (const h of opts.hreflang ?? []) parts.push(`<link rel="alternate" hreflang="${h.lang}" href="${h.href}">`);
 
   if (opts.jsonld === 'valid') parts.push('<script type="application/ld+json">{"@type":"WebPage"}</script>');
   if (opts.jsonld === 'invalid') parts.push('<script type="application/ld+json">{not json</script>');
@@ -199,5 +201,60 @@ describe('audit', () => {
     expect(await auditOne({ meta: 'x'.repeat(70) })).not.toContain('meta-description-length:/p');
     expect(await auditOne({ meta: 'x'.repeat(160) })).not.toContain('meta-description-length:/p');
     expect(await auditOne({ meta: 'x'.repeat(161) })).toContain('meta-description-length:/p');
+  });
+
+  // --- hreflang validation ---
+
+  const hrefFindings = async (hreflang: { lang: string; href: string }[]) => {
+    const fetchImpl = serve({ '/p': res({ html: page({ hreflang }), finalUrl: `${URL_BASE}/p` }) });
+    const out = await audit({ url: URL_BASE, paths: ['/p'], maxPages: 50, fetchImpl });
+    return out.findings.filter((f) => f.signal === 'hreflang');
+  };
+  const SELF = `${URL_BASE}/p`;
+  const CLEAN = [
+    { lang: 'en', href: SELF },
+    { lang: 'fr', href: `${URL_BASE}/fr/p` },
+    { lang: 'x-default', href: SELF },
+  ];
+
+  it('no hreflang findings for a valid cluster, nor when the page has no hreflang', async () => {
+    expect(await hrefFindings(CLEAN)).toEqual([]);
+    expect(await hrefFindings([])).toEqual([]);
+  });
+
+  it('flags an invalid hreflang code (warning, lists the bad code)', async () => {
+    const f = await hrefFindings([...CLEAN, { lang: 'en_US', href: `${URL_BASE}/us/p` }]);
+    expect(f).toHaveLength(1);
+    expect(f[0].severity).toBe('warning');
+    expect(f[0].after).toContain('en_US');
+  });
+
+  it('flags a missing self-reference (warning)', async () => {
+    const f = await hrefFindings([
+      { lang: 'fr', href: `${URL_BASE}/fr/p` },
+      { lang: 'x-default', href: `${URL_BASE}/default` },
+    ]);
+    expect(f).toHaveLength(1);
+    expect(f[0].severity).toBe('warning');
+    expect(f[0].message).toMatch(/auto-référence/);
+  });
+
+  it('flags a duplicate hreflang entry case-insensitively (warning)', async () => {
+    const f = await hrefFindings([
+      { lang: 'en', href: SELF },
+      { lang: 'EN', href: `${URL_BASE}/en2/p` },
+      { lang: 'x-default', href: SELF },
+    ]);
+    expect(f.some((x) => x.severity === 'warning' && /double/.test(x.message))).toBe(true);
+  });
+
+  it('flags a missing x-default (info only)', async () => {
+    const f = await hrefFindings([
+      { lang: 'en', href: SELF },
+      { lang: 'fr', href: `${URL_BASE}/fr/p` },
+    ]);
+    expect(f).toHaveLength(1);
+    expect(f[0].severity).toBe('info');
+    expect(f[0].message).toMatch(/x-default/);
   });
 });

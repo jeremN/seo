@@ -87,7 +87,7 @@ seo-guard guard --prod https://example.com --preview https://pr-123.example.dev 
 `indexability`, `canonical`, `status`, `page-removed`, `title`, `meta-description`,
 `h1`, `structured-data`, `new-page`, `orphan-page`, `internal-link-broken`,
 `social-tags`, `viewport`, `charset`, `title-length`, `meta-description-length`,
-`canonical-duplicate`.
+`canonical-duplicate`, `hreflang`.
 
 `guard` reports these as **before→after transitions** (prod vs preview); `audit` reports
 them as **absolute** best-practice violations on one site. Orphan/broken-link detection is
