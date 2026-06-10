@@ -91,3 +91,11 @@ seo-guard guard --prod https://example.com --preview https://pr-123.example.dev 
 them as **absolute** best-practice violations on one site. Orphan/broken-link detection is
 one-hop and sees **static-HTML** links only — JS-rendered navigation can yield false
 orphans.
+
+## Hosted MCP tools
+
+The same `guard`/`audit` capabilities (plus a single-page `check_page`) are also available
+as **read-only MCP tools** — `guard_pr`, `audit_site`, `check_page` — for agents that prefer
+a hosted tool call over shelling out to the CLI. They return the same `seo-guard/v1` JSON
+contract. See [`../seo-mcp/README.md`](../seo-mcp/README.md) for the server and how to
+connect.
