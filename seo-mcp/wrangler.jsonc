@@ -5,7 +5,7 @@
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
   "kv_namespaces": [
-    { "binding": "OAUTH_KV", "id": "PLACEHOLDER_SET_IN_TASK_6" }
+    { "binding": "OAUTH_KV", "id": "897491a490f9434b92ec199db20955e0" }
   ],
   "vars": {
     "ALLOWED_GITHUB_LOGINS": "jeremN"
