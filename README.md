@@ -66,7 +66,7 @@ Full docs: [`seo-regression-guard/README.md`](seo-regression-guard/README.md).
 | Title / meta / H1 | removed | 🟡 |
 | Structured data | JSON-LD removed or now invalid | 🟡 |
 | Internal links / orphans | broken internal link, or an unlinked page | 🟡 |
-| Head/meta | social tags or viewport removed, duplicate canonical introduced | 🟡 |
+| Head/meta | social tags / viewport / hreflang removed, duplicate canonical introduced | 🟡 |
 
 ## Why it's not just another SEO tool
 

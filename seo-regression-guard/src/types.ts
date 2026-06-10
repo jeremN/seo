@@ -5,7 +5,7 @@ export type SignalName =
   | 'title' | 'meta-description' | 'h1' | 'structured-data' | 'new-page'
   | 'orphan-page' | 'internal-link-broken'
   | 'social-tags' | 'viewport' | 'charset' | 'title-length'
-  | 'meta-description-length' | 'canonical-duplicate';
+  | 'meta-description-length' | 'canonical-duplicate' | 'hreflang';
 
 export interface RobotsRule {
   disallow: string[];
@@ -28,6 +28,8 @@ export interface SeoSignals {
   hasViewport: boolean;          // <meta name="viewport"> présent
   hasCharset: boolean;           // <meta charset> ou http-equiv Content-Type présent
   canonicalCount: number;        // nombre de <link rel="canonical"> (>1 = conflit)
+  hreflang: { lang: string; href: string }[]; // annotations <link rel=alternate hreflang>
+  hreflangHasSelf: boolean;      // une annotation hreflang pointe vers cette page
 }
 
 export interface Finding {

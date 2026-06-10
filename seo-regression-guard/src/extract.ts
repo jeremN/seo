@@ -62,6 +62,14 @@ export function extract(
     (m) => m.getAttribute('charset') != null || lower(m.getAttribute('http-equiv')) === 'content-type',
   );
   const canonicalCount = links.filter((l) => lower(l.getAttribute('rel')) === 'canonical').length;
+  const hreflang = links
+    .filter((l) => lower(l.getAttribute('rel')) === 'alternate' && l.getAttribute('hreflang') != null)
+    .map((l) => ({ lang: l.getAttribute('hreflang') ?? '', href: l.getAttribute('href') ?? '' }));
+  const selfPath = (() => { try { return new URL(finalUrl).pathname; } catch { return ''; } })();
+  const hreflangHasSelf = hreflang.some((e) => {
+    try { const u = new URL(e.href, finalUrl); return u.origin === origin && u.pathname === selfPath; }
+    catch { return false; }
+  });
 
   return {
     path,
@@ -80,5 +88,7 @@ export function extract(
     hasViewport,
     hasCharset,
     canonicalCount,
+    hreflang,
+    hreflangHasSelf,
   };
 }

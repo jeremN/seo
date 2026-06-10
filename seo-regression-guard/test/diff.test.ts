@@ -8,6 +8,7 @@ const sig = (over: Partial<SeoSignals>): SeoSignals => ({
   title: 'T', metaDescription: 'D', h1: ['H'], jsonLd: [{ valid: true, types: ['Article'] }],
   internalLinks: [],
   hasOpenGraph: true, hasTwitterCard: true, hasViewport: true, hasCharset: true, canonicalCount: 1,
+  hreflang: [], hreflangHasSelf: false,
   ...over,
 });
 
@@ -102,5 +103,12 @@ describe('diff', () => {
   it('canonical dupliqué introduit → warning ; déjà dupliqué en prod → rien', () => {
     expect(diff(sig({}), sig({ canonicalCount: 2 }))).toMatchObject([{ signal: 'canonical-duplicate', severity: 'warning' }]);
     expect(diff(sig({ canonicalCount: 2 }), sig({ canonicalCount: 2 }))).toEqual([]);
+  });
+
+  it('hreflang supprimé → warning ; ajout ou inchangé → rien', () => {
+    const withH = { hreflang: [{ lang: 'en', href: 'https://x.com/a' }] };
+    expect(diff(sig(withH), sig({ hreflang: [] }))).toMatchObject([{ signal: 'hreflang', severity: 'warning' }]);
+    expect(diff(sig({ hreflang: [] }), sig(withH))).toEqual([]);
+    expect(diff(sig(withH), sig(withH))).toEqual([]);
   });
 });

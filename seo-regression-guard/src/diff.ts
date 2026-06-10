@@ -111,5 +111,10 @@ export function diff(prod: SeoSignals, preview: SeoSignals): Finding[] {
     f.push(mk(path, 'canonical-duplicate', 'warning', String(prod.canonicalCount), String(preview.canonicalCount), 'Balises canonical multiples introduites.'));
   }
 
+  // annotations hreflang retirées (ciblage international perdu)
+  if (prod.hreflang.length > 0 && preview.hreflang.length === 0) {
+    f.push(mk(path, 'hreflang', 'warning', `${prod.hreflang.length} hreflang`, 'absent', 'Annotations hreflang supprimées.'));
+  }
+
   return f;
 }

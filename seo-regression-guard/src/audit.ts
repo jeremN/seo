@@ -4,6 +4,7 @@ import { fetchUrl, type FetchImpl } from './fetcher.js';
 import { parseRobots } from './robots.js';
 import { maillageFindings, mkFinding } from './maillage.js';
 import { isIgnored } from './glob.js';
+import { isValidHreflang } from './hreflang.js';
 import type { Finding, RobotsRule, SeoSignals } from './types.js';
 
 export interface AuditOpts {
@@ -69,6 +70,28 @@ function pageFindings(p: SeoSignals): Finding[] {
   }
   if (p.metaDescription && (p.metaDescription.length < 70 || p.metaDescription.length > 160)) {
     f.push(mkFinding(p.path, 'meta-description-length', 'info', null, String(p.metaDescription.length), `Longueur de la meta description : ${p.metaDescription.length} (recommandé 70–160).`));
+  }
+  if (p.hreflang.length > 0) {
+    const invalid = p.hreflang.filter((e) => !isValidHreflang(e.lang)).map((e) => e.lang);
+    if (invalid.length) {
+      f.push(mkFinding(p.path, 'hreflang', 'warning', null, invalid.join(', '), `Code(s) hreflang invalide(s) : ${invalid.join(', ')}.`));
+    }
+    if (!p.hreflangHasSelf) {
+      f.push(mkFinding(p.path, 'hreflang', 'warning', null, null, 'hreflang sans auto-référence.'));
+    }
+    const seen = new Set<string>();
+    const dups = new Set<string>();
+    for (const e of p.hreflang) {
+      const k = e.lang.trim().toLowerCase();
+      if (seen.has(k)) dups.add(k); else seen.add(k);
+    }
+    if (dups.size) {
+      const list = [...dups].join(', ');
+      f.push(mkFinding(p.path, 'hreflang', 'warning', null, list, `hreflang en double : ${list}.`));
+    }
+    if (!p.hreflang.some((e) => e.lang.trim().toLowerCase() === 'x-default')) {
+      f.push(mkFinding(p.path, 'hreflang', 'info', null, null, 'hreflang sans x-default.'));
+    }
   }
   return f;
 }

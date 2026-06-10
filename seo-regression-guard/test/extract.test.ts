@@ -79,4 +79,29 @@ describe('extract', () => {
     expect(s.hasCharset).toBe(true); // reconnu via http-equiv
     expect(s.canonicalCount).toBe(0);
   });
+
+  it('parse les annotations hreflang et détecte l\'auto-référence', () => {
+    const head =
+      '<link rel="alternate" hreflang="en" href="https://x.com/a">' +
+      '<link rel="alternate" hreflang="fr" href="https://x.com/fr/a">' +
+      '<link rel="alternate" hreflang="x-default" href="https://x.com/a">';
+    const s = extract(H(head), 200, {}, '/a', 'https://x.com/a', 'https://x.com/a');
+    expect(s.hreflang).toEqual([
+      { lang: 'en', href: 'https://x.com/a' },
+      { lang: 'fr', href: 'https://x.com/fr/a' },
+      { lang: 'x-default', href: 'https://x.com/a' },
+    ]);
+    expect(s.hreflangHasSelf).toBe(true); // en / x-default pointent vers /a (cette page)
+  });
+
+  it('hreflangHasSelf=false si rien ne pointe vers la page ; aucune annotation → []', () => {
+    const noSelf = extract(
+      H('<link rel="alternate" hreflang="fr" href="https://x.com/fr/a">'),
+      200, {}, '/a', 'https://x.com/a', 'https://x.com/a',
+    );
+    expect(noSelf.hreflangHasSelf).toBe(false);
+    const none = extract(H(''), 200, {}, '/a', 'https://x.com/a', 'https://x.com/a');
+    expect(none.hreflang).toEqual([]);
+    expect(none.hreflangHasSelf).toBe(false);
+  });
 });
