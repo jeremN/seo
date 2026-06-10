@@ -88,6 +88,18 @@ PR opened ─► fetch each page on  prod  +  preview ─► diff SEO signals �
 Deterministic HTML + header diffing. The core (`extract` / `diff` / `report`) is pure and
 reused across the Action, a CLI, and an MCP server.
 
+## Also available as
+
+The same deterministic core ships three ways:
+
+- **GitHub Action** — the PR guard above.
+- **`seo-guard` CLI** — `seo-guard guard` (prod↔preview diff) and `seo-guard audit --url`
+  (absolute single-site audit), with a `--json` contract for agents. See
+  [`seo-regression-guard/README.md`](seo-regression-guard/README.md#cli-seo-guard).
+- **MCP server** — a remote, OAuth-secured [Model Context Protocol](https://modelcontextprotocol.io)
+  server exposing `guard_pr` / `audit_site` / `check_page` as read-only tools for Claude.
+  See [`seo-mcp/README.md`](seo-mcp/README.md).
+
 ## Not yet (roadmap)
 
 - Google Search Console alerting (post-deploy deindexation, traffic drops) & result attribution
@@ -96,7 +108,7 @@ reused across the Action, a CLI, and an MCP server.
 ## Develop
 
 ```bash
-cd seo-regression-guard && npm install && npm test   # 47 tests
+cd seo-regression-guard && npm install && npm test   # 74 tests
 ```
 
 ## License

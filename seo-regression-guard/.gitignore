@@ -1,3 +1,4 @@
 node_modules/
 *.log
 # dist/ is intentionally committed — a JS GitHub Action runs the bundled dist/index.js
+lib/

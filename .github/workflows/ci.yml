@@ -54,3 +54,41 @@ jobs:
             echo "::error::dist-cli/ is stale — run 'npm run build:cli' in seo-regression-guard/ and commit the result."
             exit 1
           fi
+
+  # The seo-mcp Worker reuses the core via build:lib, so it needs the core deps
+  # installed (for tsc) plus its own. Typecheck, test, and verify it bundles.
+  mcp:
+    runs-on: ubuntu-latest
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4   # consider pinning to a commit SHA for hardening
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: seo-mcp/package-lock.json
+
+      - name: Install core deps (build:lib needs its tsc)
+        run: npm ci
+        working-directory: seo-regression-guard
+
+      - name: Install mcp deps (pinned, from lockfile)
+        run: npm ci
+        working-directory: seo-mcp
+
+      - name: Build core lib
+        run: npm run build:lib
+        working-directory: seo-mcp
+
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: seo-mcp
+
+      - name: Test
+        run: npm test
+        working-directory: seo-mcp
+
+      - name: Verify the worker bundles
+        run: npx wrangler deploy --dry-run --outdir /tmp/seo-mcp-build
+        working-directory: seo-mcp
