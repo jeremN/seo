@@ -54,6 +54,15 @@ export function extract(
       .filter((p) => p.length > 0),
   ));
 
+  const lower = (v: string | null | undefined): string => (v ?? '').toLowerCase();
+  const hasOpenGraph = metas.some((m) => lower(m.getAttribute('property')).startsWith('og:'));
+  const hasTwitterCard = metas.some((m) => lower(m.getAttribute('name')).startsWith('twitter:'));
+  const hasViewport = metas.some((m) => lower(m.getAttribute('name')) === 'viewport');
+  const hasCharset = metas.some(
+    (m) => m.getAttribute('charset') != null || lower(m.getAttribute('http-equiv')) === 'content-type',
+  );
+  const canonicalCount = links.filter((l) => lower(l.getAttribute('rel')) === 'canonical').length;
+
   return {
     path,
     reachable: true,
@@ -66,5 +75,10 @@ export function extract(
     h1: root.querySelectorAll('h1').map((el) => el.text.trim()).filter(Boolean),
     jsonLd,
     internalLinks,
+    hasOpenGraph,
+    hasTwitterCard,
+    hasViewport,
+    hasCharset,
+    canonicalCount,
   };
 }

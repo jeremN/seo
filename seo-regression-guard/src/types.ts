@@ -3,7 +3,9 @@ export type Severity = 'critical' | 'warning' | 'info';
 export type SignalName =
   | 'indexability' | 'canonical' | 'status' | 'page-removed'
   | 'title' | 'meta-description' | 'h1' | 'structured-data' | 'new-page'
-  | 'orphan-page' | 'internal-link-broken';
+  | 'orphan-page' | 'internal-link-broken'
+  | 'social-tags' | 'viewport' | 'charset' | 'title-length'
+  | 'meta-description-length' | 'canonical-duplicate';
 
 export interface RobotsRule {
   disallow: string[];
@@ -21,6 +23,11 @@ export interface SeoSignals {
   h1: string[];
   jsonLd: { valid: boolean; types: string[] }[];
   internalLinks: string[];       // pathnames des liens <a> same-origin (pour le maillage)
+  hasOpenGraph: boolean;         // au moins une balise <meta property="og:*">
+  hasTwitterCard: boolean;       // au moins une balise <meta name="twitter:*">
+  hasViewport: boolean;          // <meta name="viewport"> présent
+  hasCharset: boolean;           // <meta charset> ou http-equiv Content-Type présent
+  canonicalCount: number;        // nombre de <link rel="canonical"> (>1 = conflit)
 }
 
 export interface Finding {

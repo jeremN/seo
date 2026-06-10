@@ -72,8 +72,15 @@ The check **blocks the merge** only when a finding meets the `fail-on` threshold
 | Structured data | JSON-LD removed, or now invalid JSON | 🟡 warning |
 | Internal links | a link to an internal URL that now 404s (one-hop checked) | 🟡 warning |
 | Orphan pages | a page no other page links to (from static HTML) | 🟡 warning |
+| Social tags | Open Graph tags removed (link previews break) | 🟡 warning |
+| Viewport | `<meta name=viewport>` removed (mobile rendering) | 🟡 warning |
+| Canonical (duplicate) | multiple `<link rel=canonical>` newly introduced | 🟡 warning |
 
 New pages (present in preview, absent in prod) are reported as ℹ️ info and never block.
+
+> The **`audit`** command (CLI / MCP) additionally runs absolute head/meta hygiene checks that
+> would be noise in a PR diff: missing viewport (warning) / charset / Open Graph (info),
+> duplicate canonical (warning), and title (30–60) / meta-description (70–160) length (info).
 
 > **Why `X-Robots-Tag` headers are ignored for noindex:** preview hosts (Cloudflare Pages,
 > Vercel, Netlify…) inject `X-Robots-Tag: noindex` on *every* preview deployment to keep
