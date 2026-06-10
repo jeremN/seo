@@ -52,6 +52,24 @@ function pageFindings(p: SeoSignals): Finding[] {
   if (p.jsonLd.some((j) => !j.valid)) {
     f.push(mkFinding(p.path, 'structured-data', 'warning', null, 'invalide', 'JSON-LD invalide.'));
   }
+  if (!p.hasViewport) {
+    f.push(mkFinding(p.path, 'viewport', 'warning', null, null, 'Meta viewport manquant (rendu mobile).'));
+  }
+  if (p.canonicalCount > 1) {
+    f.push(mkFinding(p.path, 'canonical-duplicate', 'warning', null, String(p.canonicalCount), `Plusieurs balises canonical (${p.canonicalCount}).`));
+  }
+  if (!p.hasOpenGraph) {
+    f.push(mkFinding(p.path, 'social-tags', 'info', null, null, 'Balises Open Graph absentes (aperçu de partage).'));
+  }
+  if (!p.hasCharset) {
+    f.push(mkFinding(p.path, 'charset', 'info', null, null, 'Déclaration de charset absente.'));
+  }
+  if (p.title && (p.title.length < 30 || p.title.length > 60)) {
+    f.push(mkFinding(p.path, 'title-length', 'info', null, String(p.title.length), `Longueur du title : ${p.title.length} (recommandé 30–60).`));
+  }
+  if (p.metaDescription && (p.metaDescription.length < 70 || p.metaDescription.length > 160)) {
+    f.push(mkFinding(p.path, 'meta-description-length', 'info', null, String(p.metaDescription.length), `Longueur de la meta description : ${p.metaDescription.length} (recommandé 70–160).`));
+  }
   return f;
 }
 

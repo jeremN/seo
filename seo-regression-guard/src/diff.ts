@@ -96,5 +96,20 @@ export function diff(prod: SeoSignals, preview: SeoSignals): Finding[] {
     f.push(mk(path, 'structured-data', 'warning', 'JSON-LD valide', 'invalide', 'JSON-LD désormais invalide.'));
   }
 
+  // social tags (Open Graph) retirées — casse les aperçus de partage
+  if (prod.hasOpenGraph && !preview.hasOpenGraph) {
+    f.push(mk(path, 'social-tags', 'warning', 'Open Graph', 'absent', 'Balises Open Graph supprimées.'));
+  }
+
+  // viewport retiré — casse le rendu mobile
+  if (prod.hasViewport && !preview.hasViewport) {
+    f.push(mk(path, 'viewport', 'warning', 'viewport', 'absent', 'Meta viewport supprimé.'));
+  }
+
+  // canonical multiples nouvellement introduits (canonicals en conflit)
+  if (preview.canonicalCount > 1 && prod.canonicalCount <= 1) {
+    f.push(mk(path, 'canonical-duplicate', 'warning', String(prod.canonicalCount), String(preview.canonicalCount), 'Balises canonical multiples introduites.'));
+  }
+
   return f;
 }

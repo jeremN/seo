@@ -51,4 +51,32 @@ describe('extract', () => {
     const s = extract(html, 200, {}, '/', 'https://x.com/', 'https://x.com/');
     expect(s.internalLinks.sort()).toEqual(['/a', '/b']);
   });
+
+  it('extrait les signaux head/meta (og, twitter, viewport, charset, canonical count)', () => {
+    const head =
+      '<meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width">' +
+      '<meta property="og:title" content="t">' +
+      '<meta name="twitter:card" content="summary">' +
+      '<link rel="canonical" href="https://x.com/a">' +
+      '<link rel="canonical" href="https://x.com/b">';
+    const s = extract(H(head), 200, {}, '/a', 'https://x.com/a', 'https://x.com/a');
+    expect(s.hasOpenGraph).toBe(true);
+    expect(s.hasTwitterCard).toBe(true);
+    expect(s.hasViewport).toBe(true);
+    expect(s.hasCharset).toBe(true);
+    expect(s.canonicalCount).toBe(2);
+  });
+
+  it('signaux head/meta absents → false/0 ; charset via http-equiv reconnu', () => {
+    const s = extract(
+      H('<meta http-equiv="Content-Type" content="text/html; charset=utf-8">'),
+      200, {}, '/a', 'https://x.com/a', 'https://x.com/a',
+    );
+    expect(s.hasOpenGraph).toBe(false);
+    expect(s.hasTwitterCard).toBe(false);
+    expect(s.hasViewport).toBe(false);
+    expect(s.hasCharset).toBe(true); // reconnu via http-equiv
+    expect(s.canonicalCount).toBe(0);
+  });
 });

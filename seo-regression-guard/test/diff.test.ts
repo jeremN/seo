@@ -7,6 +7,7 @@ const sig = (over: Partial<SeoSignals>): SeoSignals => ({
   robots: { noindex: false, source: null }, canonical: 'https://x.com/a',
   title: 'T', metaDescription: 'D', h1: ['H'], jsonLd: [{ valid: true, types: ['Article'] }],
   internalLinks: [],
+  hasOpenGraph: true, hasTwitterCard: true, hasViewport: true, hasCharset: true, canonicalCount: 1,
   ...over,
 });
 
@@ -86,5 +87,20 @@ describe('diff', () => {
       sig({ redirectedTo: 'https://preview.example/pricing' }),
     );
     expect(out).toEqual([]);
+  });
+
+  it('Open Graph supprimé → warning social-tags (ajout ignoré)', () => {
+    expect(diff(sig({}), sig({ hasOpenGraph: false }))).toMatchObject([{ signal: 'social-tags', severity: 'warning' }]);
+    expect(diff(sig({ hasOpenGraph: false }), sig({}))).toEqual([]);
+  });
+
+  it('viewport supprimé → warning viewport (ajout ignoré)', () => {
+    expect(diff(sig({}), sig({ hasViewport: false }))).toMatchObject([{ signal: 'viewport', severity: 'warning' }]);
+    expect(diff(sig({ hasViewport: false }), sig({}))).toEqual([]);
+  });
+
+  it('canonical dupliqué introduit → warning ; déjà dupliqué en prod → rien', () => {
+    expect(diff(sig({}), sig({ canonicalCount: 2 }))).toMatchObject([{ signal: 'canonical-duplicate', severity: 'warning' }]);
+    expect(diff(sig({ canonicalCount: 2 }), sig({ canonicalCount: 2 }))).toEqual([]);
   });
 });
