@@ -94,7 +94,9 @@ them as **absolute** best-practice violations on one site. Orphan/broken-link de
 one-hop and sees **static-HTML** links only — JS-rendered navigation can yield false
 orphans. `core-web-vitals` is **audit-only** and **opt-in** (needs a CrUX API key via
 `--crux-key` / `CRUX_API_KEY`): real-user LCP/INP/CLS p75 from CrUX field data, never fails
-the audit (no key / no data / error ⇒ no findings).
+the audit (no key / no data / error ⇒ no findings). `structured-data` also carries **audit-only**
+JSON-LD field-completeness findings (missing Google-rich-result props per `@type`: required →
+warning, recommended → info) on top of the guard's removed/invalid checks.
 
 ## Hosted MCP tools
 

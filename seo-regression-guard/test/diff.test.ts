@@ -5,7 +5,7 @@ import type { SeoSignals } from '../src/types.js';
 const sig = (over: Partial<SeoSignals>): SeoSignals => ({
   path: '/a', reachable: true, status: 200, redirectedTo: null,
   robots: { noindex: false, source: null }, canonical: 'https://x.com/a',
-  title: 'T', metaDescription: 'D', h1: ['H'], jsonLd: [{ valid: true, types: ['Article'] }],
+  title: 'T', metaDescription: 'D', h1: ['H'], jsonLd: [{ valid: true, types: ['Article'], node: { '@type': 'Article' } }],
   internalLinks: [],
   hasOpenGraph: true, hasTwitterCard: true, hasViewport: true, hasCharset: true, canonicalCount: 1,
   hreflang: [], hreflangHasSelf: false,
@@ -70,7 +70,7 @@ describe('diff', () => {
 
   it('JSON-LD supprimé / invalidé → warning', () => {
     expect(diff(sig({}), sig({ jsonLd: [] }))).toMatchObject([{ signal: 'structured-data', severity: 'warning' }]);
-    expect(diff(sig({}), sig({ jsonLd: [{ valid: false, types: [] }] }))).toMatchObject([{ signal: 'structured-data', severity: 'warning' }]);
+    expect(diff(sig({}), sig({ jsonLd: [{ valid: false, types: [], node: null }] }))).toMatchObject([{ signal: 'structured-data', severity: 'warning' }]);
   });
 
   it('paire non-reachable → [] (sautée)', () => {

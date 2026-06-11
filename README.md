@@ -69,7 +69,8 @@ Full docs: [`seo-regression-guard/README.md`](seo-regression-guard/README.md).
 | Head/meta | social tags / viewport / hreflang removed, duplicate canonical introduced | 🟡 |
 
 The **`audit`** command (CLI / MCP) adds absolute single-site checks — head/meta hygiene,
-hreflang validation, and **opt-in Core Web Vitals** (real-user LCP / INP / CLS p75 from CrUX
+hreflang validation, **structured-data field completeness** (JSON-LD missing Google-rich-result
+properties per `@type`), and **opt-in Core Web Vitals** (real-user LCP / INP / CLS p75 from CrUX
 field data, enabled with a `--crux-key`; never fails the audit).
 
 ## Why it's not just another SEO tool

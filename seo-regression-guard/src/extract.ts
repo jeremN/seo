@@ -1,6 +1,29 @@
 import { parse, type HTMLElement } from 'node-html-parser';
 import type { SeoSignals } from './types.js';
 
+// Flatten a parsed JSON-LD payload into its schema.org nodes: a top-level array and any
+// `@graph` array are expanded so each node stands alone (a node with `@graph` is replaced by
+// its members; arbitrarily-nested `@graph` is recursed). Non-object entries are dropped.
+function jsonLdNodes(data: unknown): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  const push = (v: unknown): void => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+    const obj = v as Record<string, unknown>;
+    const graph = obj['@graph'];
+    if (Array.isArray(graph)) for (const g of graph) push(g);
+    else out.push(obj);
+  };
+  if (Array.isArray(data)) for (const d of data) push(d);
+  else push(data);
+  return out;
+}
+
+// A node's `@type` value(s), normalised to a string array (schema.org allows a string or array).
+function typesOf(node: Record<string, unknown>): string[] {
+  const t = node['@type'];
+  return (Array.isArray(t) ? t : [t]).filter((x): x is string => typeof x === 'string');
+}
+
 export function extract(
   html: string,
   status: number,
@@ -26,17 +49,16 @@ export function extract(
   const jsonLd = root
     .querySelectorAll('script')
     .filter((el: HTMLElement) => (el.getAttribute('type') ?? '').toLowerCase() === 'application/ld+json')
-    .map((el: HTMLElement) => {
+    .flatMap((el: HTMLElement): SeoSignals['jsonLd'] => {
+      let data: unknown;
       try {
-        const data = JSON.parse(el.text);
-        const raw = Array.isArray(data) ? data : [data];
-        const types = raw
-          .flatMap((d) => (Array.isArray(d?.['@type']) ? d['@type'] : [d?.['@type']]))
-          .filter((t): t is string => typeof t === 'string');
-        return { valid: true, types };
+        data = JSON.parse(el.text);
       } catch {
-        return { valid: false, types: [] as string[] };
+        return [{ valid: false, types: [], node: null }];
       }
+      // One <script> → one-or-more nodes: top-level array and @graph are flattened so each
+      // schema.org node is validated independently (Yoast/WordPress emit @graph clusters).
+      return jsonLdNodes(data).map((node) => ({ valid: true, types: typesOf(node), node }));
     });
 
   const canonical =
