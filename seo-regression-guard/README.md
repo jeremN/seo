@@ -90,6 +90,10 @@ New pages (present in preview, absent in prod) are reported as ℹ️ info and n
 > (Article, Product, BreadcrumbList, Organization, FAQPage, Event, Recipe, LocalBusiness; subtypes
 > like NewsArticle / Restaurant fold in). Missing **required** → 🟡 warning, missing
 > **recommended** → ℹ️ info. `@graph` clusters are flattened and each node validated on its own.
+> It also recurses one+ level into **nested objects** — `Offer` (price/priceCurrency),
+> `AggregateRating`, FAQ `Question`/`Answer`, breadcrumb `ListItem`, `PostalAddress`,
+> `GeoCoordinates` — flagged as e.g. `Product › Offer : champs requis manquants — priceCurrency.`
+> (a string/URL shorthand is never flagged for missing sub-fields).
 
 > **Core Web Vitals (opt-in, audit-only).** Pass a [CrUX API key](https://developer.chrome.com/docs/crux/api)
 > via `--crux-key` (or the `CRUX_API_KEY` env var; MCP reads it from a Worker secret) and `audit`
