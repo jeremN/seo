@@ -85,6 +85,13 @@ New pages (present in preview, absent in prod) are reported as ℹ️ info and n
 > **hreflang** validation (invalid code / missing self-reference / duplicate → warning; missing
 > `x-default` → info).
 
+> **Core Web Vitals (opt-in, audit-only).** Pass a [CrUX API key](https://developer.chrome.com/docs/crux/api)
+> via `--crux-key` (or the `CRUX_API_KEY` env var; MCP reads it from a Worker secret) and `audit`
+> also reports real-user p75 field data — **LCP** (≤2500ms good, >4000ms poor), **INP** (≤200ms,
+> >500ms), **CLS** (≤0.10, >0.25): poor → 🟡 warning, needs-improvement → ℹ️ info, good → nothing.
+> Field data only exists for live, trafficked URLs, so this never runs on the guard/diff surface.
+> No key, no field data (404), or any CrUX error yields no findings — it **never fails the audit**.
+
 > **Why `X-Robots-Tag` headers are ignored for noindex:** preview hosts (Cloudflare Pages,
 > Vercel, Netlify…) inject `X-Robots-Tag: noindex` on *every* preview deployment to keep
 > previews out of search. That's environment noise, not a code regression — so only

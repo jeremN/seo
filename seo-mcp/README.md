@@ -20,6 +20,10 @@ JSON contract (see [`../seo-regression-guard/schema/seo-guard.v1.json`](../seo-r
 
 `maxPages` is bounded (default 50, hard cap 200).
 
+`audit_site` additionally reports **Core Web Vitals** (real-user LCP / INP / CLS p75 from CrUX
+field data) when the optional `CRUX_API_KEY` Worker secret is set — opt-in, never fails the
+audit. It is read from a server secret, not a tool argument.
+
 ## Architecture
 
 - **Stateless** MCP via `createMcpHandler` (`agents` SDK) — a plain Worker, no Durable
@@ -48,6 +52,7 @@ JSON contract (see [`../seo-regression-guard/schema/seo-guard.v1.json`](../seo-r
    ```bash
    npx wrangler secret put GITHUB_CLIENT_ID
    npx wrangler secret put GITHUB_CLIENT_SECRET
+   npx wrangler secret put CRUX_API_KEY   # optional: enables Core Web Vitals in audit_site
    ```
 
 4. **Set the allowlist** — edit `vars.ALLOWED_GITHUB_LOGINS` in `wrangler.jsonc` to your

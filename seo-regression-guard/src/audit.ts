@@ -5,6 +5,7 @@ import { parseRobots } from './robots.js';
 import { maillageFindings, mkFinding } from './maillage.js';
 import { isIgnored } from './glob.js';
 import { isValidHreflang } from './hreflang.js';
+import { cwvFindings, type CruxFetch } from './cwv.js';
 import type { Finding, RobotsRule, SeoSignals } from './types.js';
 
 export interface AuditOpts {
@@ -14,6 +15,8 @@ export interface AuditOpts {
   maxPages: number;
   ignorePaths?: string[];
   fetchImpl?: FetchImpl;
+  cruxApiKey?: string;   // opt-in Core Web Vitals (CrUX field data); absent ⇒ CWV skipped
+  cruxFetch?: CruxFetch; // test injection for the CrUX POST (defaults to the real call)
   log?: (msg: string) => void;
 }
 
@@ -119,6 +122,15 @@ export async function audit(opts: AuditOpts): Promise<AuditResult> {
     pagesByPath.set(path, sig);
     for (const finding of pageFindings(sig)) {
       if (!isIgnored(finding.path, ignore)) findings.push(finding);
+    }
+
+    // Core Web Vitals (opt-in, 2xx pages only): real-user p75 from CrUX field data.
+    // Queried against the landed URL — CrUX is keyed by the URL users actually visit.
+    if (opts.cruxApiKey && sig.status >= 200 && sig.status < 300) {
+      const pageUrl = sig.redirectedTo ?? new URL(path, opts.url).toString();
+      for (const finding of await cwvFindings(pageUrl, opts.cruxApiKey, opts.cruxFetch, opts.log)) {
+        if (!isIgnored(finding.path, ignore)) findings.push(finding);
+      }
     }
   }
 

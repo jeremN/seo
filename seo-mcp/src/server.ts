@@ -17,7 +17,7 @@ function authLogin(): string | undefined {
 
 const URL_RE = /^https?:\/\//i;
 
-export function createServer(allowlist: string[]): McpServer {
+export function createServer(allowlist: string[], cruxApiKey?: string): McpServer {
   const server = new McpServer({ name: "seo-guard", version: "0.1.0" });
 
   const guardShape = {
@@ -65,7 +65,7 @@ export function createServer(allowlist: string[]): McpServer {
       const login = authLogin();
       if (!isAllowed(login, allowlist)) return fail("Forbidden.", "Authenticate with an allowlisted GitHub account.");
       try {
-        return json(await runAudit(args));
+        return json(await runAudit(args, { cruxApiKey }));
       } catch (e) {
         return fail(e instanceof Error ? e.message : String(e), "Provide --paths or a reachable sitemap, then retry.");
       }
