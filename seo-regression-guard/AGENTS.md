@@ -87,12 +87,14 @@ seo-guard guard --prod https://example.com --preview https://pr-123.example.dev 
 `indexability`, `canonical`, `status`, `page-removed`, `title`, `meta-description`,
 `h1`, `structured-data`, `new-page`, `orphan-page`, `internal-link-broken`,
 `social-tags`, `viewport`, `charset`, `title-length`, `meta-description-length`,
-`canonical-duplicate`, `hreflang`.
+`canonical-duplicate`, `hreflang`, `core-web-vitals`.
 
 `guard` reports these as **before→after transitions** (prod vs preview); `audit` reports
 them as **absolute** best-practice violations on one site. Orphan/broken-link detection is
 one-hop and sees **static-HTML** links only — JS-rendered navigation can yield false
-orphans.
+orphans. `core-web-vitals` is **audit-only** and **opt-in** (needs a CrUX API key via
+`--crux-key` / `CRUX_API_KEY`): real-user LCP/INP/CLS p75 from CrUX field data, never fails
+the audit (no key / no data / error ⇒ no findings).
 
 ## Hosted MCP tools
 

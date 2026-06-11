@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { audit } from '../src/audit.js';
 import type { FetchResult } from '../src/fetcher.js';
+import type { CruxFetch } from '../src/cwv.js';
 
 const res = (over: Partial<FetchResult>): FetchResult =>
   ({ ok: true, status: 200, headers: {}, html: '', finalUrl: '', ...over });
@@ -60,6 +61,15 @@ function serve(pages: Record<string, FetchResult>): (url: string) => Promise<Fet
 const URL_BASE = 'https://site.example';
 const sigsOf = (findings: { signal: string; path: string }[]) =>
   findings.map((f) => `${f.signal}:${f.path}`);
+
+// A CrUX `record` with the given metric p75s, for the injectable cruxFetch.
+const cruxRecord = (metrics: Record<string, number | string>) => ({
+  record: {
+    metrics: Object.fromEntries(
+      Object.entries(metrics).map(([k, v]) => [k, { percentiles: { p75: v } }]),
+    ),
+  },
+});
 
 // Audit a single page built from `page(opts)` and return its `signal:path` list,
 // minus the orphan-page finding a lone non-root page always gets (it has no inbound
@@ -256,5 +266,41 @@ describe('audit', () => {
     expect(f).toHaveLength(1);
     expect(f[0].severity).toBe('info');
     expect(f[0].message).toMatch(/x-default/);
+  });
+
+  // --- Core Web Vitals (opt-in, CrUX field data) ---
+
+  // A cruxFetch that reports a poor LCP for any page.
+  const poorLcp: CruxFetch = () =>
+    Promise.resolve({ status: 200, body: cruxRecord({ largest_contentful_paint: 5000 }) });
+
+  it('appends Core Web Vitals findings when a CrUX key is provided', async () => {
+    const fetchImpl = serve({ '/p': res({ html: page({}), finalUrl: `${URL_BASE}/p` }) });
+    const out = await audit({ url: URL_BASE, paths: ['/p'], maxPages: 50, fetchImpl, cruxApiKey: 'KEY', cruxFetch: poorLcp });
+    expect(sigsOf(out.findings)).toContain('core-web-vitals:/p');
+  });
+
+  it('skips Core Web Vitals entirely when no CrUX key is set', async () => {
+    const fetchImpl = serve({ '/p': res({ html: page({}), finalUrl: `${URL_BASE}/p` }) });
+    const out = await audit({ url: URL_BASE, paths: ['/p'], maxPages: 50, fetchImpl, cruxFetch: poorLcp });
+    expect(sigsOf(out.findings)).not.toContain('core-web-vitals:/p');
+  });
+
+  it('respects ignore globs for Core Web Vitals findings', async () => {
+    const fetchImpl = serve({ '/p': res({ html: page({}), finalUrl: `${URL_BASE}/p` }) });
+    const out = await audit({ url: URL_BASE, paths: ['/p'], maxPages: 50, fetchImpl, cruxApiKey: 'KEY', cruxFetch: poorLcp, ignorePaths: ['/p'] });
+    expect(sigsOf(out.findings)).not.toContain('core-web-vitals:/p');
+  });
+
+  it('does not query Core Web Vitals for a non-2xx page', async () => {
+    const calls: string[] = [];
+    const cruxFetch: CruxFetch = (pageUrl) => {
+      calls.push(pageUrl);
+      return Promise.resolve({ status: 200, body: cruxRecord({ largest_contentful_paint: 5000 }) });
+    };
+    const fetchImpl = serve({ '/broken': res({ status: 404, html: '', finalUrl: `${URL_BASE}/broken` }) });
+    const out = await audit({ url: URL_BASE, paths: ['/broken'], maxPages: 50, fetchImpl, cruxApiKey: 'KEY', cruxFetch });
+    expect(calls).toEqual([]);
+    expect(sigsOf(out.findings)).not.toContain('core-web-vitals:/broken');
   });
 });

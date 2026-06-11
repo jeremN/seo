@@ -38,6 +38,28 @@ describe("runAudit", () => {
     expect(out.command).toBe("audit");
     expect(out.findings.some((f) => f.signal === "title" && f.path === "/x")).toBe(true);
   });
+
+  it("forwards a CrUX key and reports Core Web Vitals findings", async () => {
+    const fetchImpl = (url: string) => {
+      if (url.endsWith("/robots.txt")) return Promise.resolve(res({ html: "" }));
+      return Promise.resolve(res({ html: "<title>H</title><h1>h</h1>", finalUrl: url }));
+    };
+    const cruxFetch = () =>
+      Promise.resolve({ status: 200, body: { record: { metrics: { largest_contentful_paint: { percentiles: { p75: 5000 } } } } } });
+    const out = await runAudit({ url: "https://x.com", paths: ["/"] }, { fetchImpl, cruxApiKey: "KEY", cruxFetch });
+    expect(out.findings.some((f) => f.signal === "core-web-vitals")).toBe(true);
+  });
+
+  it("does not run Core Web Vitals without a key", async () => {
+    const fetchImpl = (url: string) => {
+      if (url.endsWith("/robots.txt")) return Promise.resolve(res({ html: "" }));
+      return Promise.resolve(res({ html: "<title>H</title><h1>h</h1>", finalUrl: url }));
+    };
+    const cruxFetch = () =>
+      Promise.resolve({ status: 200, body: { record: { metrics: { largest_contentful_paint: { percentiles: { p75: 5000 } } } } } });
+    const out = await runAudit({ url: "https://x.com", paths: ["/"] }, { fetchImpl, cruxFetch });
+    expect(out.findings.some((f) => f.signal === "core-web-vitals")).toBe(false);
+  });
 });
 
 describe("runGuard", () => {

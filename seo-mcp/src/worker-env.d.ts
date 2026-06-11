@@ -9,6 +9,7 @@ declare global {
     ALLOWED_GITHUB_LOGINS: string;
     GITHUB_CLIENT_ID: string;
     GITHUB_CLIENT_SECRET: string;
+    CRUX_API_KEY?: string; // optional: enables Core Web Vitals in audit_site
     OAUTH_PROVIDER: OAuthHelpers;
   }
 }

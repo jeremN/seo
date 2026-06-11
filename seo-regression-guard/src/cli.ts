@@ -115,6 +115,7 @@ cli
   .option('--sitemap <url>', 'URL du sitemap (défaut : <url>/sitemap.xml)')
   .option('--max-pages <n>', 'Nombre maximum de pages à crawler', { default: 50 })
   .option('--ignore <glob>', 'Ignore les findings sur les chemins correspondants (répétable)')
+  .option('--crux-key <key>', 'Clé API CrUX pour les Core Web Vitals (sinon variable CRUX_API_KEY) — opt-in')
   .option('--json', 'Émet du JSON machine (seo-guard/v1) sur stdout')
   .example('seo-guard audit --url https://site.com')
   .example('seo-guard audit --url https://site.com --max-pages 100 --json')
@@ -131,6 +132,7 @@ cli
         sitemapUrl: opts.sitemap,
         maxPages: safeMaxPages(opts.maxPages),
         ignorePaths: splitList(opts.ignore),
+        cruxApiKey: opts.cruxKey || process.env.CRUX_API_KEY || undefined,
         log: logToStderr,
       });
       emit('audit', result, json);

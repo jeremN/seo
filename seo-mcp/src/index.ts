@@ -8,7 +8,7 @@ import { GitHubHandler } from "./github-handler.js";
 // requirement (shared instances can leak one client's response to another).
 const apiHandler = {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const server = createServer(parseAllowlist(env.ALLOWED_GITHUB_LOGINS));
+    const server = createServer(parseAllowlist(env.ALLOWED_GITHUB_LOGINS), env.CRUX_API_KEY);
     return createMcpHandler(server)(request, env, ctx);
   },
 };

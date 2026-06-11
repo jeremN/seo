@@ -5,7 +5,8 @@ export type SignalName =
   | 'title' | 'meta-description' | 'h1' | 'structured-data' | 'new-page'
   | 'orphan-page' | 'internal-link-broken'
   | 'social-tags' | 'viewport' | 'charset' | 'title-length'
-  | 'meta-description-length' | 'canonical-duplicate' | 'hreflang';
+  | 'meta-description-length' | 'canonical-duplicate' | 'hreflang'
+  | 'core-web-vitals';
 
 export interface RobotsRule {
   disallow: string[];

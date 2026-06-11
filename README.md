@@ -68,6 +68,10 @@ Full docs: [`seo-regression-guard/README.md`](seo-regression-guard/README.md).
 | Internal links / orphans | broken internal link, or an unlinked page | 🟡 |
 | Head/meta | social tags / viewport / hreflang removed, duplicate canonical introduced | 🟡 |
 
+The **`audit`** command (CLI / MCP) adds absolute single-site checks — head/meta hygiene,
+hreflang validation, and **opt-in Core Web Vitals** (real-user LCP / INP / CLS p75 from CrUX
+field data, enabled with a `--crux-key`; never fails the audit).
+
 ## Why it's not just another SEO tool
 
 - **Lives in your workflow, not a dashboard.** It runs on every PR and blocks the merge —

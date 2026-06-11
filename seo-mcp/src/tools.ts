@@ -2,13 +2,14 @@ import { fetchSignals } from "../../seo-regression-guard/lib/fetchSignals.js";
 import { parseRobots } from "../../seo-regression-guard/lib/robots.js";
 import { fetchUrl, type FetchImpl } from "../../seo-regression-guard/lib/fetcher.js";
 import type { RobotsRule, SeoSignals } from "../../seo-regression-guard/lib/types.js";
+import type { CruxFetch } from "../../seo-regression-guard/lib/cwv.js";
 import { audit } from "../../seo-regression-guard/lib/audit.js";
 import { analyze } from "../../seo-regression-guard/lib/analyze.js";
 import { reportJson, meetsThreshold } from "../../seo-regression-guard/lib/cli-render.js";
 import type { FailOn } from "../../seo-regression-guard/lib/report.js";
 import { clampMaxPages } from "./clamp.js";
 
-interface Deps { fetchImpl?: FetchImpl }
+interface Deps { fetchImpl?: FetchImpl; cruxApiKey?: string; cruxFetch?: CruxFetch }
 
 async function loadRobots(origin: string, fetchImpl: FetchImpl): Promise<RobotsRule> {
   const r = await fetchImpl(new URL("/robots.txt", origin).toString());
@@ -31,6 +32,8 @@ export async function runAudit(args: AuditArgs, deps: Deps = {}) {
     maxPages: clampMaxPages(args.maxPages),
     ignorePaths: args.ignore,
     fetchImpl: deps.fetchImpl,
+    cruxApiKey: deps.cruxApiKey,
+    cruxFetch: deps.cruxFetch,
   });
   return reportJson("audit", result);
 }
