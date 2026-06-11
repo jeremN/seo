@@ -327,7 +327,7 @@ describe('audit', () => {
   });
 
   it('emits no structured-data finding for a complete node', async () => {
-    const f = await auditLd({ '@type': 'Product', name: 'X', offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'u' }, image: 'i', brand: 'b', sku: 's', description: 'd' });
+    const f = await auditLd({ '@type': 'Product', name: 'X', offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'https://x.com/buy' }, image: 'i', brand: 'b', sku: 's', description: 'd' });
     expect(f).toEqual([]);
   });
 });

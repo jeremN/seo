@@ -9,8 +9,8 @@ const ld = (obj: Record<string, unknown>) => {
 };
 
 const ARTICLE_FULL = {
-  '@type': 'Article', headline: 'H', image: 'i', datePublished: 'd',
-  dateModified: 'd', author: { name: 'a' }, publisher: { name: 'p' },
+  '@type': 'Article', headline: 'H', image: 'https://x.com/i.jpg', datePublished: '2024-01-15',
+  dateModified: '2024-01-15', author: { name: 'a' }, publisher: { name: 'p' },
 };
 
 describe('structuredDataFindings', () => {
@@ -25,7 +25,7 @@ describe('structuredDataFindings', () => {
   it('no findings for a complete Product', () => {
     const f = structuredDataFindings([ld({
       '@type': 'Product', name: 'X',
-      offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'u' },
+      offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'https://x.com/buy' },
       image: 'i', brand: 'b', sku: 's', description: 'd',
     })], '/p');
     expect(f).toEqual([]);
@@ -144,5 +144,101 @@ describe('structuredDataFindings — nested depth', () => {
       geo: { latitude: 0, longitude: 0 },
     })], '/p');
     expect(f.some((x) => x.severity === 'warning')).toBe(false);
+  });
+});
+
+describe('structuredDataFindings — value formats', () => {
+  const product = (over: Record<string, unknown>) =>
+    ld({ '@type': 'Product', name: 'X', image: 'i', brand: 'b', sku: 's', description: 'd', ...over });
+  // A complete, well-formed Offer except the field(s) under test.
+  const offer = (over: Record<string, unknown>) =>
+    product({ offers: { price: '9.99', priceCurrency: 'EUR', availability: 'InStock', url: 'https://x.com/buy', ...over } });
+
+  // --- number ---
+  it('flags a non-numeric Offer price as a warning on Offer.price', () => {
+    const w = structuredDataFindings([offer({ price: 'free' })], '/p').find((f) => f.severity === 'warning');
+    expect(w?.message).toContain('Offer.price');
+    expect(w?.message).toContain('invalide');
+    expect(w?.after).toBe('free');
+  });
+  it('accepts a numeric Offer price as string or number', () => {
+    expect(structuredDataFindings([offer({ price: '9.99' })], '/p')).toEqual([]);
+    expect(structuredDataFindings([offer({ price: 9.99 })], '/p')).toEqual([]);
+  });
+
+  // --- currency ---
+  it('flags a non-ISO-4217 priceCurrency (symbol or lowercase) as a warning', () => {
+    const bad = (c: unknown) =>
+      structuredDataFindings([offer({ priceCurrency: c })], '/p').some((f) => f.severity === 'warning' && f.message.includes('priceCurrency'));
+    expect(bad('€')).toBe(true);
+    expect(bad('eur')).toBe(true);
+  });
+  it('accepts a 3-letter uppercase priceCurrency', () => {
+    expect(structuredDataFindings([offer({ priceCurrency: 'EUR' })], '/p')).toEqual([]);
+  });
+
+  // --- date ---
+  it('flags a malformed Article date as a warning', () => {
+    const bad = (d: string) =>
+      structuredDataFindings([ld({ ...ARTICLE_FULL, datePublished: d })], '/p').some((f) => f.severity === 'warning' && f.message.includes('datePublished'));
+    expect(bad('hier')).toBe(true);
+    expect(bad('2024-13-40')).toBe(true);
+    expect(bad('2024/01/15')).toBe(true);
+  });
+  it('accepts ISO-8601 date and datetime', () => {
+    expect(structuredDataFindings([ld({ ...ARTICLE_FULL, datePublished: '2024-01-15' })], '/p')).toEqual([]);
+    expect(structuredDataFindings([ld({ ...ARTICLE_FULL, datePublished: '2024-01-15T10:30:00Z' })], '/p')).toEqual([]);
+  });
+
+  // --- rating ---
+  it('flags an out-of-range ratingValue on the default 1–5 scale', () => {
+    const w = structuredDataFindings([product({ aggregateRating: { ratingValue: 6, reviewCount: '10' } })], '/p')
+      .find((f) => f.severity === 'warning' && f.message.includes('ratingValue'));
+    expect(w).toBeDefined();
+  });
+  it('accepts an in-range ratingValue and a custom bestRating', () => {
+    expect(structuredDataFindings([product({ aggregateRating: { ratingValue: 4.5, reviewCount: '10' } })], '/p')).toEqual([]);
+    expect(structuredDataFindings([product({ aggregateRating: { ratingValue: 8, bestRating: 10, reviewCount: '10' } })], '/p')).toEqual([]);
+  });
+
+  // --- url ---
+  it('flags a relative url as info, not warning', () => {
+    const fmt = structuredDataFindings([ld({ '@type': 'Organization', name: 'O', url: '/x' })], '/p')
+      .find((x) => x.message.includes('url') && x.message.includes('invalide'));
+    expect(fmt?.severity).toBe('info');
+  });
+  it('accepts an absolute http(s) url and an object-valued logo', () => {
+    expect(structuredDataFindings([ld({
+      '@type': 'Organization', name: 'O', url: 'https://x.com',
+      logo: { '@type': 'ImageObject', url: 'https://x' }, sameAs: 'https://x', contactPoint: {},
+    })], '/p')).toEqual([]);
+  });
+  it('validates every element of a url array (sameAs) → info on a bad element', () => {
+    const fmt = structuredDataFindings([ld({
+      '@type': 'Organization', name: 'O', url: 'https://x.com', logo: 'https://x',
+      sameAs: ['https://x', '/y'], contactPoint: {},
+    })], '/p').find((x) => x.message.includes('sameAs') && x.message.includes('invalide'));
+    expect(fmt?.severity).toBe('info');
+  });
+
+  // --- interaction with the presence pass (no double-report) ---
+  it('a present-but-malformed value fires a format finding only', () => {
+    const warns = structuredDataFindings([offer({ price: 'free' })], '/p').filter((f) => f.severity === 'warning');
+    expect(warns).toHaveLength(1);
+    expect(warns[0].message).toContain('Offer.price');
+    expect(warns[0].message).toContain('invalide');
+  });
+  it('an absent value fires a presence finding only', () => {
+    const warns = structuredDataFindings([product({ offers: { priceCurrency: 'EUR', availability: 'InStock', url: 'https://x.com/buy' } })], '/p')
+      .filter((f) => f.severity === 'warning');
+    expect(warns).toHaveLength(1);
+    expect(warns[0].after).toContain('price');
+    expect(warns[0].message).not.toContain('invalide');
+  });
+
+  // --- dedupe ---
+  it('dedupes identical format findings across nodes', () => {
+    const two = [offer({ price: 'free' }), offer({ price: 'free' })];
+    expect(structuredDataFindings(two, '/p').filter((f) => f.severity === 'warning')).toHaveLength(1);
   });
 });
