@@ -93,7 +93,11 @@ New pages (present in preview, absent in prod) are reported as ℹ️ info and n
 > It also recurses one+ level into **nested objects** — `Offer` (price/priceCurrency),
 > `AggregateRating`, FAQ `Question`/`Answer`, breadcrumb `ListItem`, `PostalAddress`,
 > `GeoCoordinates` — flagged as e.g. `Product › Offer : champs requis manquants — priceCurrency.`
-> (a string/URL shorthand is never flagged for missing sub-fields).
+> (a string/URL shorthand is never flagged for missing sub-fields). Finally, **present** values are
+> checked for the right **format** — numeric `price`, ISO-4217 `priceCurrency`, ISO-8601 dates,
+> in-range `ratingValue`, absolute-URL fields — flagged as e.g. `Product › Offer.price : valeur
+> invalide — attendu un nombre.` (🟡 warning; bad-URL → ℹ️ info). Shape-only, like hreflang: no
+> bundled ISO lists, no lenient date parsing.
 
 > **Core Web Vitals (opt-in, audit-only).** Pass a [CrUX API key](https://developer.chrome.com/docs/crux/api)
 > via `--crux-key` (or the `CRUX_API_KEY` env var; MCP reads it from a Worker secret) and `audit`
