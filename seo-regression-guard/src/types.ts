@@ -22,7 +22,7 @@ export interface SeoSignals {
   title: string | null;
   metaDescription: string | null;
   h1: string[];
-  jsonLd: { valid: boolean; types: string[] }[];
+  jsonLd: { valid: boolean; types: string[]; node: Record<string, unknown> | null }[];
   internalLinks: string[];       // pathnames des liens <a> same-origin (pour le maillage)
   hasOpenGraph: boolean;         // au moins une balise <meta property="og:*">
   hasTwitterCard: boolean;       // au moins une balise <meta name="twitter:*">

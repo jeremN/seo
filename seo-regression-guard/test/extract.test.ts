@@ -28,17 +28,34 @@ describe('extract', () => {
     expect(s.robots).toEqual({ noindex: true, source: 'header' });
   });
 
-  it('parse JSON-LD valide et marque l\'invalide', () => {
-    const ok = '<script type="application/ld+json">{"@type":"Article"}</script>';
+  it('parse JSON-LD valide (node retenu) et marque l\'invalide', () => {
+    const ok = '<script type="application/ld+json">{"@type":"Article","headline":"H"}</script>';
     const bad = '<script type="application/ld+json">{nope}</script>';
     const s = extract(H(ok + bad), 200, {}, '/a', 'https://x.com/a', 'https://x.com/a');
-    expect(s.jsonLd).toEqual([{ valid: true, types: ['Article'] }, { valid: false, types: [] }]);
+    expect(s.jsonLd).toEqual([
+      { valid: true, types: ['Article'], node: { '@type': 'Article', headline: 'H' } },
+      { valid: false, types: [], node: null },
+    ]);
   });
 
   it('aplatit un @type en forme tableau (valide schema.org)', () => {
     const html = H('<script type="application/ld+json">{"@type":["Article","NewsArticle"]}</script>');
     const s = extract(html, 200, {}, '/a', 'https://x.com/a', 'https://x.com/a');
-    expect(s.jsonLd).toEqual([{ valid: true, types: ['Article', 'NewsArticle'] }]);
+    expect(s.jsonLd).toEqual([
+      { valid: true, types: ['Article', 'NewsArticle'], node: { '@type': ['Article', 'NewsArticle'] } },
+    ]);
+  });
+
+  it('aplatit @graph en nœuds séparés, chacun avec son node', () => {
+    const graph = '<script type="application/ld+json">'
+      + '{"@context":"https://schema.org","@graph":['
+      + '{"@type":"Organization","name":"Acme"},'
+      + '{"@type":"WebSite","url":"https://x.com"}]}</script>';
+    const s = extract(H(graph), 200, {}, '/a', 'https://x.com/a', 'https://x.com/a');
+    expect(s.jsonLd).toHaveLength(2);
+    expect(s.jsonLd[0]).toEqual({ valid: true, types: ['Organization'], node: { '@type': 'Organization', name: 'Acme' } });
+    expect(s.jsonLd[1].types).toEqual(['WebSite']);
+    expect(s.jsonLd[1].node?.url).toBe('https://x.com');
   });
 
   it('renseigne redirectedTo quand finalUrl diffère', () => {

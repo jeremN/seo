@@ -6,6 +6,7 @@ import { maillageFindings, mkFinding } from './maillage.js';
 import { isIgnored } from './glob.js';
 import { isValidHreflang } from './hreflang.js';
 import { cwvFindings, type CruxFetch } from './cwv.js';
+import { structuredDataFindings } from './structured-data.js';
 import type { Finding, RobotsRule, SeoSignals } from './types.js';
 
 export interface AuditOpts {
@@ -56,6 +57,8 @@ function pageFindings(p: SeoSignals): Finding[] {
   if (p.jsonLd.some((j) => !j.valid)) {
     f.push(mkFinding(p.path, 'structured-data', 'warning', null, 'invalide', 'JSON-LD invalide.'));
   }
+  // Field completeness on valid JSON-LD nodes (Google rich-result required/recommended props).
+  f.push(...structuredDataFindings(p.jsonLd, p.path));
   if (!p.hasViewport) {
     f.push(mkFinding(p.path, 'viewport', 'warning', null, null, 'Meta viewport manquant (rendu mobile).'));
   }

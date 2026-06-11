@@ -303,4 +303,30 @@ describe('audit', () => {
     expect(calls).toEqual([]);
     expect(sigsOf(out.findings)).not.toContain('core-web-vitals:/broken');
   });
+
+  // --- structured-data field validation ---
+
+  const ldScript = (obj: Record<string, unknown>) =>
+    `<script type="application/ld+json">${JSON.stringify(obj)}</script>`;
+  const auditLd = async (obj: Record<string, unknown>) => {
+    const fetchImpl = serve({ '/p': res({ html: page({}) + ldScript(obj), finalUrl: `${URL_BASE}/p` }) });
+    const out = await audit({ url: URL_BASE, paths: ['/p'], maxPages: 50, fetchImpl });
+    return out.findings.filter((f) => f.signal === 'structured-data');
+  };
+
+  it('flags an incomplete Product as a structured-data warning', async () => {
+    const f = await auditLd({ '@type': 'Product', name: 'X' });
+    expect(f.some((x) => x.severity === 'warning')).toBe(true);
+  });
+
+  it('reports a recommended-only gap as info (no warning)', async () => {
+    const f = await auditLd({ '@type': 'Product', name: 'X', offers: { price: '9' }, brand: 'b', sku: 's', description: 'd' });
+    expect(f.some((x) => x.severity === 'info')).toBe(true);
+    expect(f.some((x) => x.severity === 'warning')).toBe(false);
+  });
+
+  it('emits no structured-data finding for a complete node', async () => {
+    const f = await auditLd({ '@type': 'Product', name: 'X', offers: { price: '9' }, image: 'i', brand: 'b', sku: 's', description: 'd' });
+    expect(f).toEqual([]);
+  });
 });

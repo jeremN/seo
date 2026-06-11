@@ -85,6 +85,12 @@ New pages (present in preview, absent in prod) are reported as ℹ️ info and n
 > **hreflang** validation (invalid code / missing self-reference / duplicate → warning; missing
 > `x-default` → info).
 
+> **Structured-data field completeness (audit).** Beyond the guard's "JSON-LD removed / now
+> invalid", `audit` checks valid JSON-LD nodes for the properties Google needs per `@type`
+> (Article, Product, BreadcrumbList, Organization, FAQPage, Event, Recipe, LocalBusiness; subtypes
+> like NewsArticle / Restaurant fold in). Missing **required** → 🟡 warning, missing
+> **recommended** → ℹ️ info. `@graph` clusters are flattened and each node validated on its own.
+
 > **Core Web Vitals (opt-in, audit-only).** Pass a [CrUX API key](https://developer.chrome.com/docs/crux/api)
 > via `--crux-key` (or the `CRUX_API_KEY` env var; MCP reads it from a Worker secret) and `audit`
 > also reports real-user p75 field data — **LCP** (≤2500ms good, >4000ms poor), **INP** (≤200ms,
