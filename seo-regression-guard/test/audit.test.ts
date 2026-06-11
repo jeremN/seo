@@ -320,13 +320,14 @@ describe('audit', () => {
   });
 
   it('reports a recommended-only gap as info (no warning)', async () => {
-    const f = await auditLd({ '@type': 'Product', name: 'X', offers: { price: '9' }, brand: 'b', sku: 's', description: 'd' });
+    // Complete offers (so no nested Offer warning); only the top-level `image` recommended is missing.
+    const f = await auditLd({ '@type': 'Product', name: 'X', offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'u' }, brand: 'b', sku: 's', description: 'd' });
     expect(f.some((x) => x.severity === 'info')).toBe(true);
     expect(f.some((x) => x.severity === 'warning')).toBe(false);
   });
 
   it('emits no structured-data finding for a complete node', async () => {
-    const f = await auditLd({ '@type': 'Product', name: 'X', offers: { price: '9' }, image: 'i', brand: 'b', sku: 's', description: 'd' });
+    const f = await auditLd({ '@type': 'Product', name: 'X', offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'u' }, image: 'i', brand: 'b', sku: 's', description: 'd' });
     expect(f).toEqual([]);
   });
 });
