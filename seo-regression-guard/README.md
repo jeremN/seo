@@ -87,13 +87,15 @@ New pages (present in preview, absent in prod) are reported as ℹ️ info and n
 
 > **Structured-data field completeness (audit).** Beyond the guard's "JSON-LD removed / now
 > invalid", `audit` checks valid JSON-LD nodes for the properties Google needs per `@type`
-> (Article, Product, BreadcrumbList, Organization, FAQPage, Event, Recipe, LocalBusiness; subtypes
-> like NewsArticle / Restaurant fold in). Missing **required** → 🟡 warning, missing
-> **recommended** → ℹ️ info. `@graph` clusters are flattened and each node validated on its own.
-> It also recurses one+ level into **nested objects** — `Offer` (price/priceCurrency),
-> `AggregateRating`, FAQ `Question`/`Answer`, breadcrumb `ListItem`, `PostalAddress`,
-> `GeoCoordinates` — flagged as e.g. `Product › Offer : champs requis manquants — priceCurrency.`
-> (a string/URL shorthand is never flagged for missing sub-fields). Finally, **present** values are
+> (Article, Product, BreadcrumbList, Organization, FAQPage, Event, Recipe, LocalBusiness,
+> VideoObject; subtypes like NewsArticle / Restaurant fold in). Missing **required** → 🟡 warning,
+> missing **recommended** → ℹ️ info. `@graph` clusters are flattened and each node validated on its
+> own. It also recurses one+ level into **nested objects** — `Offer` / `AggregateOffer`
+> (price/priceCurrency), `AggregateRating`, `Review` → `Rating` / `Byline`, `ImageObject`
+> (image/logo), FAQ `Question`/`Answer`, breadcrumb `ListItem`, `PostalAddress`, `GeoCoordinates` —
+> flagged as e.g. `Product › Offer : champs requis manquants — priceCurrency.` (a string/URL
+> shorthand is never flagged for missing sub-fields; a field whose sub-object type varies —
+> `offers` = Offer or AggregateOffer — is dispatched by its `@type`). Finally, **present** values are
 > checked for the right **format** — numeric `price`, ISO-4217 `priceCurrency`, ISO-8601 dates,
 > in-range `ratingValue`, absolute-URL fields — flagged as e.g. `Product › Offer.price : valeur
 > invalide — attendu un nombre.` (🟡 warning; bad-URL → ℹ️ info). Shape-only, like hreflang: no

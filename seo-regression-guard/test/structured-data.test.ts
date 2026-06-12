@@ -376,3 +376,97 @@ describe('structuredDataFindings — formats v2: priceValidUntil', () => {
     expect(offer({ priceValidUntil: '2024-12-31' })).toEqual([]);
   });
 });
+
+describe('structuredDataFindings — sub-types: AggregateOffer (byType)', () => {
+  const product = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({ '@type': 'Product', name: 'X', image: 'i', brand: 'b', sku: 's', description: 'd', ...over })], '/p');
+
+  it('validates an AggregateOffer via @type dispatch (no missing-price false positive)', () => {
+    expect(product({ offers: { '@type': 'AggregateOffer', lowPrice: '10', priceCurrency: 'EUR' } })
+      .some((f) => f.severity === 'warning')).toBe(false);
+  });
+  it('flags an AggregateOffer missing lowPrice under the AggregateOffer breadcrumb', () => {
+    const w = product({ offers: { '@type': 'AggregateOffer', priceCurrency: 'EUR' } }).find((f) => f.severity === 'warning');
+    expect(w?.message).toContain('AggregateOffer');
+    expect(w?.after).toContain('lowPrice');
+  });
+  it('still validates a typeless offers object as the default Offer', () => {
+    const w = product({ offers: { price: '9' } }).find((f) => f.severity === 'warning');
+    expect(w?.message).toContain('Offer');
+    expect(w?.message).not.toContain('AggregateOffer');
+    expect(w?.after).toContain('priceCurrency');
+  });
+});
+
+describe('structuredDataFindings — sub-types: Review / Rating / Byline', () => {
+  const product = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({
+      '@type': 'Product', name: 'X', image: 'i', brand: 'b', sku: 's', description: 'd',
+      offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'https://x.com/buy' }, ...over,
+    })], '/p');
+
+  it('no warning for a complete review', () => {
+    expect(product({ review: [{ author: { name: 'A' }, reviewRating: { ratingValue: 5 }, datePublished: '2024-01-01' }] })
+      .some((f) => f.severity === 'warning')).toBe(false);
+  });
+  it('flags a review missing author', () => {
+    const w = product({ review: [{ reviewRating: { ratingValue: 5 } }] }).find((f) => f.severity === 'warning');
+    expect(w?.message).toContain('Review');
+    expect(w?.after).toContain('author');
+  });
+  it('flags a Review › Rating out of range (depth 3)', () => {
+    const w = product({ review: [{ author: { name: 'A' }, reviewRating: { ratingValue: 9 } }] })
+      .find((f) => f.severity === 'warning' && f.message.includes('Rating'));
+    expect(w?.message).toContain('Review › Rating');
+  });
+  it('flags a Review › Byline missing name', () => {
+    const w = product({ review: [{ author: {}, reviewRating: { ratingValue: 5 } }] })
+      .find((f) => f.severity === 'warning' && f.message.includes('Byline'));
+    expect(w?.message).toContain('Review › Byline');
+    expect(w?.after).toContain('name');
+  });
+});
+
+describe('structuredDataFindings — sub-types: ImageObject', () => {
+  it('accepts an ImageObject with a url', () => {
+    expect(structuredDataFindings([ld({ ...ARTICLE_FULL, image: { '@type': 'ImageObject', url: 'https://x.com/i.jpg' } })], '/p')).toEqual([]);
+  });
+  it('flags an ImageObject without url/contentUrl', () => {
+    const w = structuredDataFindings([ld({ ...ARTICLE_FULL, image: { '@type': 'ImageObject' } })], '/p')
+      .find((f) => f.severity === 'warning' && f.message.includes('ImageObject'));
+    expect(w?.after).toContain('url');
+  });
+  it('flags an Organization logo object without url', () => {
+    const w = structuredDataFindings([ld({
+      '@type': 'Organization', name: 'O', url: 'https://x.com', logo: {}, sameAs: 'https://x', contactPoint: {},
+    })], '/p').find((f) => f.message.includes('ImageObject'));
+    expect(w?.severity).toBe('warning');
+  });
+  it('skips a string author (no Byline finding)', () => {
+    expect(structuredDataFindings([ld({ ...ARTICLE_FULL, author: 'Jane Doe' })], '/p').some((f) => f.message.includes('Byline'))).toBe(false);
+  });
+});
+
+describe('structuredDataFindings — sub-types: VideoObject', () => {
+  const VIDEO_FULL = {
+    '@type': 'VideoObject', name: 'V', thumbnailUrl: 'https://x.com/t.jpg', uploadDate: '2024-01-01',
+    contentUrl: 'https://x.com/v.mp4', description: 'd', duration: 'PT1M',
+  };
+  it('no findings for a complete VideoObject', () => {
+    expect(structuredDataFindings([ld(VIDEO_FULL)], '/p')).toEqual([]);
+  });
+  it('flags a missing required uploadDate', () => {
+    const { uploadDate, ...noDate } = VIDEO_FULL; void uploadDate;
+    expect(structuredDataFindings([ld(noDate)], '/p').some((f) => f.severity === 'warning' && f.after?.includes('uploadDate'))).toBe(true);
+  });
+  it('flags missing both contentUrl and embedUrl as one anyOf warning', () => {
+    const { contentUrl, ...noUrl } = VIDEO_FULL; void contentUrl;
+    const warns = structuredDataFindings([ld(noUrl)], '/p').filter((f) => f.severity === 'warning');
+    expect(warns).toHaveLength(1);
+    expect(warns[0].after).toContain('contentUrl|embedUrl');
+  });
+  it('flags a bad thumbnailUrl as info and a bad duration as warning', () => {
+    expect(structuredDataFindings([ld({ ...VIDEO_FULL, thumbnailUrl: 'x' })], '/p').find((f) => f.message.includes('thumbnailUrl'))?.severity).toBe('info');
+    expect(structuredDataFindings([ld({ ...VIDEO_FULL, duration: '5 min' })], '/p').find((f) => f.message.includes('duration'))?.severity).toBe('warning');
+  });
+});
