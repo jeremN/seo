@@ -242,3 +242,137 @@ describe('structuredDataFindings — value formats', () => {
     expect(structuredDataFindings(two, '/p').filter((f) => f.severity === 'warning')).toHaveLength(1);
   });
 });
+
+describe('structuredDataFindings — formats v2: duration', () => {
+  // A complete, well-formed Recipe except the time field under test.
+  const recipe = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({
+      '@type': 'Recipe', name: 'R', image: 'https://x.com/i.jpg',
+      recipeIngredient: ['a'], recipeInstructions: 'do', ...over,
+    })], '/p');
+
+  it('accepts ISO-8601 durations on Recipe times', () => {
+    for (const d of ['PT30M', 'PT1H30M', 'P1DT2H', 'PT0S', 'P1W']) {
+      expect(recipe({ totalTime: d }).some((f) => f.severity === 'warning')).toBe(false);
+    }
+  });
+  it('flags a malformed duration as a warning', () => {
+    for (const d of ['30 min', 'P', 'PT', '1H30M']) {
+      const w = recipe({ totalTime: d }).find((f) => f.severity === 'warning');
+      expect(w?.message).toContain('totalTime');
+      expect(w?.message).toContain('durée');
+    }
+  });
+  it('checks prepTime and cookTime too', () => {
+    expect(recipe({ prepTime: 'PT10M', cookTime: 'oops' }).find((f) => f.severity === 'warning')?.message).toContain('cookTime');
+  });
+});
+
+describe('structuredDataFindings — formats v2: gtin', () => {
+  const product = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({
+      '@type': 'Product', name: 'X', image: 'i', brand: 'b', sku: 's', description: 'd',
+      aggregateRating: { ratingValue: 4, reviewCount: '10' }, ...over,
+    })], '/p');
+
+  it('accepts a GTIN with a valid check digit', () => {
+    expect(product({ gtin13: '4006381333931' }).some((f) => f.severity === 'warning')).toBe(false);
+    expect(product({ gtin8: '96385074' }).some((f) => f.severity === 'warning')).toBe(false);
+  });
+  it('flags a bad check digit, wrong length, or non-digit GTIN', () => {
+    for (const g of [{ gtin13: '4006381333932' }, { gtin: '123' }, { gtin: 'abc123' }]) {
+      const w = product(g).find((f) => f.severity === 'warning');
+      expect(w?.message).toContain('GTIN');
+    }
+  });
+});
+
+describe('structuredDataFindings — formats v2: enums', () => {
+  const offer = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({
+      '@type': 'Product', name: 'X', image: 'i', brand: 'b', sku: 's', description: 'd',
+      offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'https://x.com/buy', ...over },
+    })], '/p');
+  const event = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({
+      '@type': 'Event', name: 'E', startDate: '2024-01-10', location: { '@type': 'Place', name: 'P' },
+      endDate: '2024-01-11', image: 'https://x.com/i.jpg', description: 'd',
+      offers: { price: '1', priceCurrency: 'EUR' }, eventStatus: 'EventScheduled', ...over,
+    })], '/p');
+
+  it('accepts a valid availability, bare and schema.org-URL form', () => {
+    expect(offer({ availability: 'InStock' })).toEqual([]);
+    expect(offer({ availability: 'https://schema.org/InStock' })).toEqual([]);
+  });
+  it('flags an invalid availability as info', () => {
+    for (const a of ['in stock', 'InStuck']) {
+      const f = offer({ availability: a }).find((x) => x.message.includes('availability'));
+      expect(f?.severity).toBe('info');
+      expect(f?.message).toContain('ItemAvailability');
+    }
+  });
+  it('accepts a valid itemCondition, flags an invalid one as info', () => {
+    expect(offer({ itemCondition: 'NewCondition' })).toEqual([]);
+    expect(offer({ itemCondition: 'new' }).find((x) => x.message.includes('itemCondition'))?.severity).toBe('info');
+  });
+  it('accepts a valid eventStatus, flags an invalid one as info', () => {
+    expect(event({ eventStatus: 'EventScheduled' })).toEqual([]);
+    expect(event({ eventStatus: 'cancelled' }).find((x) => x.message.includes('eventStatus'))?.severity).toBe('info');
+  });
+});
+
+describe('structuredDataFindings — formats v2: cross-field checks', () => {
+  const event = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({
+      '@type': 'Event', name: 'E', startDate: '2024-01-10', location: { '@type': 'Place', name: 'P' },
+      endDate: '2024-01-11', image: 'https://x.com/i.jpg', description: 'd',
+      offers: { price: '1', priceCurrency: 'EUR' }, eventStatus: 'EventScheduled', ...over,
+    })], '/p');
+  const product = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({
+      '@type': 'Product', name: 'X', image: 'i', brand: 'b', sku: 's', description: 'd', ...over,
+    })], '/p');
+
+  it('flags endDate before startDate (same precision)', () => {
+    const w = event({ startDate: '2024-01-10', endDate: '2024-01-05' }).find((f) => f.severity === 'warning');
+    expect(w?.message).toContain('endDate antérieure');
+    expect(w?.after).toBe('2024-01-05');
+  });
+  it('accepts equal start and end dates', () => {
+    expect(event({ startDate: '2024-01-10', endDate: '2024-01-10' }).some((f) => f.severity === 'warning')).toBe(false);
+  });
+  it('skips the comparison on mixed precision (date vs datetime)', () => {
+    expect(event({ startDate: '2024-01-10', endDate: '2024-01-05T10:00:00Z' }).some((f) => f.severity === 'warning')).toBe(false);
+  });
+  it('skips the comparison on differing timezones', () => {
+    expect(event({ startDate: '2024-01-10T10:00:00+02:00', endDate: '2024-01-05T10:00:00Z' }).some((f) => f.severity === 'warning')).toBe(false);
+  });
+
+  it('flags an inverted rating scale once (no ratingValue double-report)', () => {
+    const warns = product({ aggregateRating: { ratingValue: 3, worstRating: 5, bestRating: 1, reviewCount: '10' } })
+      .filter((f) => f.severity === 'warning');
+    expect(warns).toHaveLength(1);
+    expect(warns[0].message).toContain('bestRating');
+  });
+  it('accepts a custom scale where bestRating > worstRating', () => {
+    expect(product({ aggregateRating: { ratingValue: 8, worstRating: 1, bestRating: 10, reviewCount: '10' } })
+      .some((f) => f.severity === 'warning')).toBe(false);
+  });
+});
+
+describe('structuredDataFindings — formats v2: priceValidUntil', () => {
+  const offer = (over: Record<string, unknown>) =>
+    structuredDataFindings([ld({
+      '@type': 'Product', name: 'X', image: 'i', brand: 'b', sku: 's', description: 'd',
+      offers: { price: '9', priceCurrency: 'EUR', availability: 'InStock', url: 'https://x.com/buy', ...over },
+    })], '/p');
+
+  it('flags a malformed priceValidUntil as a date warning', () => {
+    const w = offer({ priceValidUntil: 'hier' }).find((f) => f.severity === 'warning');
+    expect(w?.message).toContain('priceValidUntil');
+    expect(w?.message).toContain('date');
+  });
+  it('accepts a valid priceValidUntil', () => {
+    expect(offer({ priceValidUntil: '2024-12-31' })).toEqual([]);
+  });
+});

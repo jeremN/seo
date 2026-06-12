@@ -7,11 +7,18 @@ interface TypeRule {
   recommended?: string[];  // present → good; missing → info
   nested?: NestedRule[];   // object-valued fields to recurse into
   formats?: Record<string, FormatKind>; // present-value shape checks (price→number, etc.)
+  enums?: Record<string, EnumName>;      // present-value membership in a closed schema.org enum
+  checks?: CheckName[];                   // cross-field invariants (endDate≥startDate, scale sanity)
 }
 
 // Shape categories for present-value validation. Deterministic and data-free (consistent with the
 // hreflang shape-only philosophy): no bundled ISO-4217/639 lists, no lenient Date.parse.
-type FormatKind = 'number' | 'currency' | 'date' | 'rating' | 'url';
+type FormatKind = 'number' | 'currency' | 'date' | 'rating' | 'url' | 'duration' | 'gtin';
+// Closed schema.org enums — the documented exception to "no bundled data": each is small (<~20),
+// fixed, and owned by schema.org (open-world ISO currency/lang/country lists stay shape-only).
+type EnumName = 'ItemAvailability' | 'ItemCondition' | 'EventStatus';
+// Cross-field invariant names (implementations live in CHECKS, looked up at runtime like FORMAT_CHECKS).
+type CheckName = 'endDateOrder' | 'ratingScale';
 
 interface NestedRule {
   field: string;   // the property holding the nested object(s)
@@ -23,8 +30,8 @@ interface NestedRule {
 // --- nested sub-type rules (declared before the parent rules that reference them) ---
 const Answer: TypeRule = { required: ['text'] };
 const Question: TypeRule = { required: ['name', 'acceptedAnswer'], nested: [{ field: 'acceptedAnswer', as: 'Answer', rule: Answer }] };
-const Offer: TypeRule = { required: ['price', 'priceCurrency'], recommended: ['availability', 'url'], formats: { price: 'number', priceCurrency: 'currency', url: 'url' } };
-const AggregateRating: TypeRule = { required: ['ratingValue'], anyOf: ['reviewCount', 'ratingCount'], formats: { ratingValue: 'rating', reviewCount: 'number', ratingCount: 'number' } };
+const Offer: TypeRule = { required: ['price', 'priceCurrency'], recommended: ['availability', 'url'], formats: { price: 'number', priceCurrency: 'currency', url: 'url', priceValidUntil: 'date' }, enums: { availability: 'ItemAvailability', itemCondition: 'ItemCondition' } };
+const AggregateRating: TypeRule = { required: ['ratingValue'], anyOf: ['reviewCount', 'ratingCount'], formats: { ratingValue: 'rating', reviewCount: 'number', ratingCount: 'number' }, checks: ['ratingScale'] };
 const ListItem: TypeRule = { required: ['name', 'item', 'position'], formats: { position: 'number', item: 'url' } };
 const PostalAddress: TypeRule = { required: ['streetAddress', 'addressLocality', 'addressCountry'], recommended: ['addressRegion', 'postalCode'] };
 const GeoCoordinates: TypeRule = { required: ['latitude', 'longitude'], formats: { latitude: 'number', longitude: 'number' } };
@@ -36,17 +43,21 @@ const RULES: Record<string, TypeRule> = {
   Article: { required: ['headline'], recommended: ['image', 'datePublished', 'dateModified', 'author', 'publisher'], formats: { datePublished: 'date', dateModified: 'date', image: 'url' } },
   Product: {
     required: ['name'], anyOf: ['offers', 'review', 'aggregateRating'], recommended: ['image', 'brand', 'sku', 'description'],
+    formats: { gtin: 'gtin', gtin8: 'gtin', gtin12: 'gtin', gtin13: 'gtin', gtin14: 'gtin' },
     nested: [{ field: 'offers', as: 'Offer', rule: Offer }, { field: 'aggregateRating', as: 'AggregateRating', rule: AggregateRating }],
   },
   BreadcrumbList: { required: ['itemListElement'], nested: [{ field: 'itemListElement', as: 'ListItem', rule: ListItem, array: true }] },
   Organization: { required: ['name'], recommended: ['url', 'logo', 'sameAs', 'contactPoint'], formats: { url: 'url', logo: 'url', sameAs: 'url' } },
   FAQPage: { required: ['mainEntity'], nested: [{ field: 'mainEntity', as: 'Question', rule: Question, array: true }] },
-  Event: { required: ['name', 'startDate', 'location'], recommended: ['endDate', 'image', 'description', 'offers', 'eventStatus'], formats: { startDate: 'date', endDate: 'date' } },
+  Event: {
+    required: ['name', 'startDate', 'location'], recommended: ['endDate', 'image', 'description', 'offers', 'eventStatus'],
+    formats: { startDate: 'date', endDate: 'date' }, enums: { eventStatus: 'EventStatus' }, checks: ['endDateOrder'],
+  },
   Recipe: {
     required: ['name', 'image', 'recipeIngredient', 'recipeInstructions'],
     recommended: ['author', 'datePublished', 'description', 'aggregateRating', 'nutrition'],
     nested: [{ field: 'aggregateRating', as: 'AggregateRating', rule: AggregateRating }],
-    formats: { datePublished: 'date', image: 'url' },
+    formats: { datePublished: 'date', image: 'url', prepTime: 'duration', cookTime: 'duration', totalTime: 'duration' },
   },
   LocalBusiness: {
     required: ['name', 'address'], recommended: ['telephone', 'openingHoursSpecification', 'geo', 'priceRange', 'url', 'image'],
@@ -100,17 +111,38 @@ const isAbsoluteHttpUrl = (v: unknown): boolean => {
   }
 };
 
+// ISO-8601 duration (P[n]Y[n]M[n]DT[n]H[n]M[n]S, or week P[n]W). Fractional only on seconds — the
+// common schema.org form. Rejects bare "P"/"PT" and time components without the "T". Deterministic.
+const ISO_8601_DURATION =
+  /^P(?:\d+W|(?=\d|T\d)(?:\d+Y)?(?:\d+M)?(?:\d+D)?(?:T(?=\d)(?:\d+H)?(?:\d+M)?(?:\d+(?:\.\d+)?S)?)?)$/;
+
+// GTIN-8/12/13/14: all digits, valid length, GS1 mod-10 check digit (alternating ×3/×1 from the
+// rightmost data digit). Numbers are coerced (JSON-LD sometimes emits a numeric gtin).
+function isValidGtin(v: unknown): boolean {
+  const s = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.trim() : '';
+  if (!/^\d+$/.test(s) || ![8, 12, 13, 14].includes(s.length)) return false;
+  const d = s.split('').map(Number);
+  const check = d.pop()!;
+  let sum = 0;
+  for (let i = d.length - 1, w = 3; i >= 0; i--, w = w === 3 ? 1 : 3) sum += d[i] * w;
+  return (10 - (sum % 10)) % 10 === check;
+}
+
 type FormatCheck = (v: unknown, node: Record<string, unknown>) => boolean;
 
 const FORMAT_CHECKS: Record<FormatKind, FormatCheck> = {
   number: (v) => isFiniteNum(v),
   currency: (v) => typeof v === 'string' && /^[A-Z]{3}$/.test(v.trim()),
   date: (v) => typeof v === 'string' && ISO_8601.test(v.trim()),
+  duration: (v) => typeof v === 'string' && ISO_8601_DURATION.test(v.trim()),
+  gtin: (v) => isValidGtin(v),
   rating: (v, node) => {
     const n = Number(v);
+    if (!Number.isFinite(n)) return false;
     const lo = Number.isFinite(Number(node.worstRating)) ? Number(node.worstRating) : 1;
     const hi = Number.isFinite(Number(node.bestRating)) ? Number(node.bestRating) : 5;
-    return Number.isFinite(n) && n >= lo && n <= hi;
+    if (hi <= lo) return true; // inverted/degenerate scale → the ratingScale check reports it (no double-flag)
+    return n >= lo && n <= hi;
   },
   // String → absolute http(s); array → every element; plain object → pass (it's a nested node, e.g.
   // an ImageObject, not a URL string).
@@ -121,16 +153,69 @@ const LABEL: Record<FormatKind, string> = {
   number: 'un nombre',
   currency: 'un code ISO-4217 (3 lettres majuscules)',
   date: 'une date ISO-8601',
+  duration: 'une durée ISO-8601 (ex. PT30M)',
+  gtin: 'un GTIN valide (8/12/13/14 chiffres, clé de contrôle)',
   rating: "une note dans l'échelle (worst–best, défaut 1–5)",
   url: 'une URL http(s) absolue',
 };
 
+// Closed schema.org enum specs. Values accepted bare ("InStock") or as a "https://schema.org/InStock"
+// URL (the SCHEMA_URL prefix is stripped before membership). Mismatch → info (advisory, not a blocker).
+interface EnumSpec { values: Set<string>; label: string; severity: 'warning' | 'info'; }
+const SCHEMA_URL = /^https?:\/\/schema\.org\//;
+
+const ENUM_SPECS: Record<EnumName, EnumSpec> = {
+  ItemAvailability: {
+    values: new Set(['InStock', 'OutOfStock', 'PreOrder', 'BackOrder', 'Discontinued', 'SoldOut',
+      'LimitedAvailability', 'OnlineOnly', 'InStoreOnly', 'PreSale']),
+    label: 'une valeur ItemAvailability (ex. InStock)', severity: 'info',
+  },
+  ItemCondition: {
+    values: new Set(['NewCondition', 'UsedCondition', 'RefurbishedCondition', 'DamagedCondition']),
+    label: 'une valeur ItemCondition (ex. NewCondition)', severity: 'info',
+  },
+  EventStatus: {
+    values: new Set(['EventScheduled', 'EventCancelled', 'EventMovedOnline', 'EventPostponed', 'EventRescheduled']),
+    label: 'une valeur EventStatus (ex. EventScheduled)', severity: 'info',
+  },
+};
+
+// Cross-field invariants: inspect the whole node, return a finding spec or null. Deterministic.
+type NodeCheck = (node: Record<string, unknown>) => { after: string; message: string } | null;
+
+const dateOnly = (s: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(s);
+const tzSuffix = (s: string): string => s.match(/(Z|[+-]\d{2}:\d{2})$/)?.[1] ?? '';
+// ISO-8601 strings are lexically comparable only at the same precision and offset. Compare when both
+// are date-only, or both are datetimes with identical timezone suffix and length; otherwise skip —
+// mixed precision / differing offset would need arithmetic (Date.parse), so don't risk a false flag.
+function comparableIso(a: string, b: string): boolean {
+  if (dateOnly(a) && dateOnly(b)) return true;
+  if (!dateOnly(a) && !dateOnly(b)) return tzSuffix(a) === tzSuffix(b) && a.length === b.length;
+  return false;
+}
+
+const CHECKS: Record<CheckName, NodeCheck> = {
+  endDateOrder: (n) => {
+    const s = n.startDate, e = n.endDate;
+    if (typeof s !== 'string' || typeof e !== 'string') return null;
+    const st = s.trim(), et = e.trim();
+    if (!ISO_8601.test(st) || !ISO_8601.test(et) || !comparableIso(st, et)) return null;
+    return et < st ? { after: et, message: 'endDate antérieure à startDate.' } : null;
+  },
+  ratingScale: (n) => {
+    const lo = Number(n.worstRating), hi = Number(n.bestRating);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+    return hi <= lo ? { after: String(n.bestRating), message: 'bestRating doit être supérieur à worstRating.' } : null;
+  },
+};
+
 type Emit = (severity: 'warning' | 'info', after: string, message: string) => void;
 
-// Check one node against a rule: one warning (missing required + unmet anyOf), one info (missing
-// recommended), then a format finding per malformed present value (`formats`), then recurse into
-// present object-valued `nested` fields. The `prefix` builds the breadcrumb shown in the message
-// ('Product', then 'Product › Offer').
+// Check one node against a rule, in order: presence (missing required + unmet anyOf → warning),
+// recommended (missing → info), formats (malformed present value), enums (present value outside a
+// closed schema.org set), checks (cross-field invariants), then recurse into present object-valued
+// `nested` fields. Each pass on present-only values, so absence and malformation never both fire.
+// The `prefix` builds the breadcrumb shown in the message ('Product', then 'Product › Offer').
 function collect(node: Record<string, unknown>, prefix: string, rule: TypeRule, emit: Emit): void {
   const missingRequired = (rule.required ?? []).filter((k) => !isPresent(node[k]));
   const anyOfUnmet = rule.anyOf !== undefined && !rule.anyOf.some((k) => isPresent(node[k]));
@@ -150,6 +235,20 @@ function collect(node: Record<string, unknown>, prefix: string, rule: TypeRule, 
     const v = node[field];
     if (!isPresent(v) || FORMAT_CHECKS[kind](v, node)) continue;
     emit(kind === 'url' ? 'info' : 'warning', String(v).slice(0, 50), `${prefix}.${field} : valeur invalide — attendu ${LABEL[kind]}.`);
+  }
+  // Enum pass: a present value must belong to its closed schema.org set (bare or schema.org-URL form).
+  for (const [field, name] of Object.entries(rule.enums ?? {})) {
+    const v = node[field];
+    if (!isPresent(v)) continue;
+    const spec = ENUM_SPECS[name];
+    const bare = typeof v === 'string' ? v.trim().replace(SCHEMA_URL, '') : null;
+    if (bare !== null && spec.values.has(bare)) continue;
+    emit(spec.severity, String(v).slice(0, 50), `${prefix}.${field} : valeur invalide — attendu ${spec.label}.`);
+  }
+  // Cross-field checks (whole-node invariants).
+  for (const name of rule.checks ?? []) {
+    const r = CHECKS[name](node);
+    if (r) emit('warning', r.after, `${prefix} : ${r.message}`);
   }
   for (const n of rule.nested ?? []) {
     const v = node[n.field];
