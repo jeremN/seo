@@ -22,8 +22,9 @@ type CheckName = 'endDateOrder' | 'ratingScale';
 
 interface NestedRule {
   field: string;   // the property holding the nested object(s)
-  as: string;      // sub-type name, for the breadcrumb message (e.g. 'Offer')
-  rule: TypeRule;  // the sub-rule (may itself have `nested` → arbitrary depth)
+  as: string;      // default breadcrumb label (used when no `byType` key matches)
+  rule: TypeRule;  // default sub-rule (may itself have `nested` → arbitrary depth)
+  byType?: Record<string, TypeRule>; // child @type → sub-rule override; the matched key is the breadcrumb
   array?: boolean; // the field is a collection of objects → validate each element
 }
 
@@ -35,19 +36,48 @@ const AggregateRating: TypeRule = { required: ['ratingValue'], anyOf: ['reviewCo
 const ListItem: TypeRule = { required: ['name', 'item', 'position'], formats: { position: 'number', item: 'url' } };
 const PostalAddress: TypeRule = { required: ['streetAddress', 'addressLocality', 'addressCountry'], recommended: ['addressRegion', 'postalCode'] };
 const GeoCoordinates: TypeRule = { required: ['latitude', 'longitude'], formats: { latitude: 'number', longitude: 'number' } };
+// Shared "named agent" rule for Person/Organization-valued author/publisher (name only; no
+// `recommended` so a byline without a URL isn't nagged). String authors are skipped in `collect`.
+const Byline: TypeRule = { required: ['name'], formats: { url: 'url' } };
+const Rating: TypeRule = { required: ['ratingValue'], formats: { ratingValue: 'rating' }, checks: ['ratingScale'] };
+const Review: TypeRule = {
+  required: ['author', 'reviewRating'], recommended: ['datePublished'], formats: { datePublished: 'date' },
+  nested: [{ field: 'reviewRating', as: 'Rating', rule: Rating }, { field: 'author', as: 'Byline', rule: Byline }],
+};
+// Catches an image/logo *object* with no URL (the `url` format kind passes any object).
+const ImageObject: TypeRule = { anyOf: ['url', 'contentUrl'], formats: { url: 'url', contentUrl: 'url' } };
+const AggregateOffer: TypeRule = {
+  required: ['lowPrice', 'priceCurrency'], recommended: ['highPrice', 'offerCount'],
+  formats: { lowPrice: 'number', highPrice: 'number', priceCurrency: 'currency', offerCount: 'number' },
+};
 
 // Google-rich-result field requirements per canonical schema.org @type. Top-level presence plus
 // `nested` recursion into object-valued props (v1 curated sub-types). Pure data — add a row to
 // extend.
 const RULES: Record<string, TypeRule> = {
-  Article: { required: ['headline'], recommended: ['image', 'datePublished', 'dateModified', 'author', 'publisher'], formats: { datePublished: 'date', dateModified: 'date', image: 'url' } },
+  Article: {
+    required: ['headline'], recommended: ['image', 'datePublished', 'dateModified', 'author', 'publisher'],
+    formats: { datePublished: 'date', dateModified: 'date', image: 'url' },
+    nested: [{ field: 'author', as: 'Byline', rule: Byline }, { field: 'publisher', as: 'Byline', rule: Byline }, { field: 'image', as: 'ImageObject', rule: ImageObject }],
+  },
   Product: {
     required: ['name'], anyOf: ['offers', 'review', 'aggregateRating'], recommended: ['image', 'brand', 'sku', 'description'],
     formats: { gtin: 'gtin', gtin8: 'gtin', gtin12: 'gtin', gtin13: 'gtin', gtin14: 'gtin' },
-    nested: [{ field: 'offers', as: 'Offer', rule: Offer }, { field: 'aggregateRating', as: 'AggregateRating', rule: AggregateRating }],
+    nested: [
+      { field: 'offers', as: 'Offer', rule: Offer, byType: { AggregateOffer } },
+      { field: 'aggregateRating', as: 'AggregateRating', rule: AggregateRating },
+      { field: 'review', as: 'Review', rule: Review, array: true },
+    ],
+  },
+  VideoObject: {
+    required: ['name', 'thumbnailUrl', 'uploadDate'], anyOf: ['contentUrl', 'embedUrl'], recommended: ['description', 'duration'],
+    formats: { thumbnailUrl: 'url', uploadDate: 'date', contentUrl: 'url', embedUrl: 'url', duration: 'duration' },
   },
   BreadcrumbList: { required: ['itemListElement'], nested: [{ field: 'itemListElement', as: 'ListItem', rule: ListItem, array: true }] },
-  Organization: { required: ['name'], recommended: ['url', 'logo', 'sameAs', 'contactPoint'], formats: { url: 'url', logo: 'url', sameAs: 'url' } },
+  Organization: {
+    required: ['name'], recommended: ['url', 'logo', 'sameAs', 'contactPoint'], formats: { url: 'url', logo: 'url', sameAs: 'url' },
+    nested: [{ field: 'logo', as: 'ImageObject', rule: ImageObject }],
+  },
   FAQPage: { required: ['mainEntity'], nested: [{ field: 'mainEntity', as: 'Question', rule: Question, array: true }] },
   Event: {
     required: ['name', 'startDate', 'location'], recommended: ['endDate', 'image', 'description', 'offers', 'eventStatus'],
@@ -56,7 +86,11 @@ const RULES: Record<string, TypeRule> = {
   Recipe: {
     required: ['name', 'image', 'recipeIngredient', 'recipeInstructions'],
     recommended: ['author', 'datePublished', 'description', 'aggregateRating', 'nutrition'],
-    nested: [{ field: 'aggregateRating', as: 'AggregateRating', rule: AggregateRating }],
+    nested: [
+      { field: 'aggregateRating', as: 'AggregateRating', rule: AggregateRating },
+      { field: 'author', as: 'Byline', rule: Byline },
+      { field: 'image', as: 'ImageObject', rule: ImageObject },
+    ],
     formats: { datePublished: 'date', image: 'url', prepTime: 'duration', cookTime: 'duration', totalTime: 'duration' },
   },
   LocalBusiness: {
@@ -66,6 +100,7 @@ const RULES: Record<string, TypeRule> = {
       { field: 'address', as: 'PostalAddress', rule: PostalAddress },
       { field: 'geo', as: 'GeoCoordinates', rule: GeoCoordinates },
       { field: 'aggregateRating', as: 'AggregateRating', rule: AggregateRating },
+      { field: 'review', as: 'Review', rule: Review, array: true },
     ],
   },
 };
@@ -255,7 +290,13 @@ function collect(node: Record<string, unknown>, prefix: string, rule: TypeRule, 
     if (!isPresent(v)) continue; // absent → already flagged by the parent's required/anyOf
     const children = n.array && Array.isArray(v) ? v : [v];
     for (const child of children) {
-      if (isObject(child)) collect(child, `${prefix} › ${n.as}`, n.rule, emit);
+      if (!isObject(child)) continue; // string/URL shorthand → not validated as a sub-object
+      // Dispatch on the child's @type when `byType` has a match (e.g. offers → Offer vs AggregateOffer);
+      // the matched key is the breadcrumb. Absent/unrecognized @type → the default rule/`as`.
+      const t = child['@type'];
+      const types = (Array.isArray(t) ? t : [t]).filter((x): x is string => typeof x === 'string');
+      const key = types.find((x) => n.byType?.[x]);
+      collect(child, `${prefix} › ${key ?? n.as}`, key ? n.byType![key] : n.rule, emit);
     }
   }
 }
