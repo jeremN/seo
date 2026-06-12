@@ -98,6 +98,15 @@ New pages (present in preview, absent in prod) are reported as ℹ️ info and n
 > in-range `ratingValue`, absolute-URL fields — flagged as e.g. `Product › Offer.price : valeur
 > invalide — attendu un nombre.` (🟡 warning; bad-URL → ℹ️ info). Shape-only, like hreflang: no
 > bundled ISO lists, no lenient date parsing.
+>
+> The format pass also validates **ISO-8601 durations** (Recipe `prepTime`/`cookTime`/`totalTime`),
+> **GTIN** check-digits (`Product.gtin*`), and **cross-field** invariants (`endDate ≥ startDate`,
+> `bestRating > worstRating`). A small set of **closed schema.org enums** is checked too —
+> `availability` (ItemAvailability), `itemCondition`, `eventStatus` — accepted bare or as a
+> `https://schema.org/…` URL, mismatch → ℹ️ info. Enum boundary (deliberate): only **closed,
+> schema.org-owned** vocabularies are enumerated inline; open-world ISO lists (currency / language /
+> country) stay shape-only. All checks remain deterministic — no clock, so "price valid in the
+> future?" is intentionally out of scope.
 
 > **Core Web Vitals (opt-in, audit-only).** Pass a [CrUX API key](https://developer.chrome.com/docs/crux/api)
 > via `--crux-key` (or the `CRUX_API_KEY` env var; MCP reads it from a Worker secret) and `audit`
